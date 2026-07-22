@@ -1,16 +1,27 @@
 mod class;
 
-use std::{env, fs};
+use std::{env, fs, process::exit};
 
 use class::reader::ClassReader;
 
 use crate::class::{class_file::ClassFile, constant_pool::ConstantPoolEntry};
+
+const VERSION_STRING: &str = "a0.0.1";
 
 fn main() {
     let args: Vec<String> = env::args().collect();
 
     if args.iter().count() < 2 {
         panic!("No .class file to run provided!");
+    }
+
+    if args.contains(&"-version".to_string()) {
+        println!("dioptase - A rust Java® SE8 Virtual Machine");
+        println!("Version {}", VERSION_STRING);
+        println!("Copyright (C) 2026 NotNekodev");
+        println!("SPDX-License-Identifier: GPL-3.0-only");
+
+        exit(0);
     }
 
     let class_file = &args[1];

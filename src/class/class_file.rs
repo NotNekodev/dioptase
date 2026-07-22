@@ -3,6 +3,7 @@ use crate::class::{
     reader::ClassReader,
 };
 
+#[allow(dead_code)]
 pub struct ClassFile {
     pub constant_pool: ConstantPool,
     pub access_flags: u16,
