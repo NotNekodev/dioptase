@@ -4,6 +4,7 @@ use crate::class::{
     method::MethodInfo,
     reader::ClassReader,
 };
+use std::error::Error;
 
 #[allow(dead_code)]
 pub struct ClassFile {
@@ -17,8 +18,8 @@ pub struct ClassFile {
 }
 
 impl ClassFile {
-    pub fn read(reader: &mut ClassReader) -> Self {
-        let magic = reader.read_u32();
+    pub fn read(reader: &mut ClassReader) -> Result<Self, Box<dyn Error + Send + Sync + 'static>> {
+        let magic = reader.read_u32()?;
 
         if magic != 0xCAFEBABE {
             panic!(
@@ -27,19 +28,19 @@ impl ClassFile {
             );
         }
 
-        let _minor = reader.read_u16();
-        let _major = reader.read_u16();
+        let _minor = reader.read_u16()?;
+        let _major = reader.read_u16()?;
 
-        let constant_pool = ConstantPool::read(reader);
+        let constant_pool = ConstantPool::read(reader)?;
 
         println!(
             "Constant pool size: {} entries",
             constant_pool.entries.iter().count() - 1
         );
 
-        let access_flags = reader.read_u16();
-        let this_class = reader.read_u16();
-        let super_class = reader.read_u16();
+        let access_flags = reader.read_u16()?;
+        let this_class = reader.read_u16()?;
+        let super_class = reader.read_u16()?;
 
         println!("Access flags: {:#X}", access_flags);
         println!("this_class: {}", this_class);
@@ -57,14 +58,14 @@ impl ClassFile {
             None => panic!("super_class index out of bounds"),
         }
 
-        let interfaces_count = reader.read_u16();
+        let interfaces_count = reader.read_u16()?;
 
         println!("Interface count: {}", interfaces_count);
 
         let mut interfaces = Vec::new();
 
         for i in 0..interfaces_count {
-            let idx = reader.read_u16();
+            let idx = reader.read_u16()?;
 
             match constant_pool.entries.get(idx as usize) {
                 Some(ConstantPoolEntry::Class { .. }) => {}
@@ -75,26 +76,27 @@ impl ClassFile {
             interfaces.push(idx);
         }
 
-        let fields_count = reader.read_u16();
+        let fields_count = reader.read_u16()?;
 
         println!("Fields count: {}", fields_count);
 
         let mut fields: Vec<FieldInfo> = Vec::new();
 
         for _ in 0..fields_count {
-            fields.push(FieldInfo::read(reader));
+            fields.push(FieldInfo::read(reader)?);
         }
 
-        let methods_count = reader.read_u16();
+        let methods_count = reader.read_u16()?;
+
         println!("Methods count: {}", methods_count);
 
         let mut methods: Vec<MethodInfo> = Vec::new();
 
         for _ in 0..methods_count {
-            methods.push(MethodInfo::read(reader));
+            methods.push(MethodInfo::read(reader)?);
         }
 
-        Self {
+        Ok(Self {
             constant_pool,
             access_flags,
             this_class,
@@ -102,6 +104,6 @@ impl ClassFile {
             interfaces,
             fields,
             methods,
-        }
+        })
     }
 }

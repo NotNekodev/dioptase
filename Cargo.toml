@@ -1,7 +1,11 @@
 [package]
 name = "dioptase"
-version = "0.1.0"
+version = "0.1.0-alpha"
 edition = "2024"
+description = "A rust Java® SE8 Virtual Machine"
+license = "GPL-3.0-only"
 
 [dependencies]
+anyhow = "1.0.104"
 bitflags = "2.13.1"
+clap = { version = "4.6.4", features = ["derive"] }

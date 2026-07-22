@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use crate::class::reader::ClassReader;
 
 #[allow(dead_code)]
@@ -7,10 +9,10 @@ pub struct AttributeInfo {
 }
 
 impl AttributeInfo {
-    pub fn read(reader: &mut ClassReader) -> Self {
-        let attribute_name_idx = reader.read_u16();
+    pub fn read(reader: &mut ClassReader) -> Result<Self, Box<dyn Error + Send + Sync + 'static>> {
+        let attribute_name_idx = reader.read_u16()?;
 
-        let attribute_len = reader.read_u32();
+        let attribute_len = reader.read_u32()?;
 
         let mut info: Vec<u8> = Vec::new();
 
@@ -18,9 +20,9 @@ impl AttributeInfo {
             info.push(reader.read_u8());
         }
 
-        Self {
+        Ok(Self {
             attribute_name_idx,
             info,
-        }
+        })
     }
 }

@@ -1,3 +1,5 @@
+use std::array::TryFromSliceError;
+
 pub struct ClassReader {
     data: Vec<u8>,
     pos: usize,
@@ -14,15 +16,15 @@ impl ClassReader {
         value
     }
 
-    pub fn read_u16(&mut self) -> u16 {
-        let bytes: [u8; 2] = self.data[self.pos..self.pos + 2].try_into().unwrap();
+    pub fn read_u16(&mut self) -> Result<u16, TryFromSliceError> {
+        let bytes: [u8; 2] = self.data[self.pos..self.pos + 2].try_into()?;
         self.pos += 2;
-        u16::from_be_bytes(bytes)
+        Ok(u16::from_be_bytes(bytes))
     }
 
-    pub fn read_u32(&mut self) -> u32 {
-        let bytes: [u8; 4] = self.data[self.pos..self.pos + 4].try_into().unwrap();
+    pub fn read_u32(&mut self) -> Result<u32, TryFromSliceError> {
+        let bytes: [u8; 4] = self.data[self.pos..self.pos + 4].try_into()?;
         self.pos += 4;
-        u32::from_be_bytes(bytes)
+        Ok(u32::from_be_bytes(bytes))
     }
 }

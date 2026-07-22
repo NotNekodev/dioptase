@@ -1,6 +1,7 @@
-use bitflags::bitflags;
-
 use crate::class::{attributes::AttributeInfo, reader::ClassReader};
+use anyhow::Result;
+use bitflags::bitflags;
+use std::error::Error;
 
 // https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-4.html#jvms-4.6-200-A.1
 bitflags! {
@@ -30,25 +31,25 @@ pub struct MethodInfo {
 }
 
 impl MethodInfo {
-    pub fn read(reader: &mut ClassReader) -> Self {
-        let access_flags_bitmask = reader.read_u16();
+    pub fn read(reader: &mut ClassReader) -> Result<Self, Box<dyn Error + Send + Sync + 'static>> {
+        let access_flags_bitmask = reader.read_u16()?;
         let access_flags = MethodAccessFlags::from_bits_truncate(access_flags_bitmask);
 
-        let name_idx = reader.read_u16();
-        let descriptor_idx = reader.read_u16();
+        let name_idx = reader.read_u16()?;
+        let descriptor_idx = reader.read_u16()?;
 
-        let attributes_count = reader.read_u16();
+        let attributes_count = reader.read_u16()?;
         let mut attributes: Vec<AttributeInfo> = Vec::new();
 
         for _ in 0..attributes_count {
-            attributes.push(AttributeInfo::read(reader));
+            attributes.push(AttributeInfo::read(reader)?);
         }
 
-        Self {
+        Ok(Self {
             name_index: name_idx,
             descriptor_index: descriptor_idx,
             access_flags: access_flags,
             attributes: attributes,
-        }
+        })
     }
 }
