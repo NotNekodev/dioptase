@@ -1,3 +1,5 @@
+use simd_cesu8::mutf8;
+
 use crate::class::reader::ClassReader;
 use std::error::Error;
 
@@ -45,7 +47,7 @@ impl ConstantPool {
                         bytes.push(reader.read_u8());
                     }
 
-                    let string = String::from_utf8(bytes)?;
+                    let string = mutf8::decode(bytes.as_slice())?.into_owned();
 
                     ConstantPoolEntry::Utf8(string)
                 }
