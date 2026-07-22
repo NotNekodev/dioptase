@@ -1,5 +1,5 @@
 use crate::class::{
-    attributes::AttributeInfo,
+    attributes::Attribute,
     constant_pool::{ConstantPool, ConstantPoolEntry},
     field::FieldInfo,
     method::MethodInfo,
@@ -16,11 +16,12 @@ pub struct ClassFile {
     pub interfaces: Vec<u16>,
     pub fields: Vec<FieldInfo>,
     pub methods: Vec<MethodInfo>,
-    pub attributes: Vec<AttributeInfo>,
+    pub attributes: Vec<Attribute>,
 }
 
 impl ClassFile {
     pub fn read(reader: &mut ClassReader) -> Result<Self, Box<dyn Error + Send + Sync + 'static>> {
+        let mut class_file: Self = Self::new();
         let magic = reader.read_u32()?;
 
         if magic != 0xCAFEBABE {
@@ -37,28 +38,36 @@ impl ClassFile {
             panic!("Invalid class file, version is not 52 but {}", major);
         }
 
-        let constant_pool = ConstantPool::read(reader)?;
+        class_file.constant_pool = ConstantPool::read(reader)?;
 
         println!(
             "Constant pool size: {} entries",
-            constant_pool.entries.iter().count() - 1
+            class_file.constant_pool.entries.iter().count() - 1
         );
 
-        let access_flags = reader.read_u16()?;
-        let this_class = reader.read_u16()?;
-        let super_class = reader.read_u16()?;
+        class_file.access_flags = reader.read_u16()?;
+        class_file.this_class = reader.read_u16()?;
+        class_file.super_class = reader.read_u16()?;
 
-        println!("Access flags: {:#X}", access_flags);
-        println!("this_class: {}", this_class);
-        println!("super_class: {}", super_class);
+        println!("Access flags: {:#X}", class_file.access_flags);
+        println!("this_class: {}", class_file.this_class);
+        println!("super_class: {}", class_file.super_class);
 
-        match constant_pool.entries.get(this_class as usize) {
+        match class_file
+            .constant_pool
+            .entries
+            .get(class_file.this_class as usize)
+        {
             Some(ConstantPoolEntry::Class { .. }) => {}
             Some(_) => panic!("this_class does not point to a CONSTANT_Class entry"),
             None => panic!("this_class index out of bounds"),
         }
 
-        match constant_pool.entries.get(super_class as usize) {
+        match class_file
+            .constant_pool
+            .entries
+            .get(class_file.super_class as usize)
+        {
             Some(ConstantPoolEntry::Class { .. }) => {}
             Some(_) => panic!("super_class does not point to a CONSTANT_Class entry"),
             None => panic!("super_class index out of bounds"),
@@ -68,57 +77,58 @@ impl ClassFile {
 
         println!("Class file contains {} interfaces", interfaces_count);
 
-        let mut interfaces = Vec::new();
-
         for i in 0..interfaces_count {
             let idx = reader.read_u16()?;
 
-            match constant_pool.entries.get(idx as usize) {
+            match class_file.constant_pool.entries.get(idx as usize) {
                 Some(ConstantPoolEntry::Class { .. }) => {}
                 Some(_) => panic!("interfaces[{}] does not point to a CONSTANT_Class entry", i),
                 None => panic!("interfaces[{}] index out of bounds", i),
             }
 
-            interfaces.push(idx);
+            class_file.interfaces.push(idx);
         }
 
         let fields_count = reader.read_u16()?;
-
         println!("Class file contains {} fields", fields_count);
 
-        let mut fields: Vec<FieldInfo> = Vec::new();
-
         for _ in 0..fields_count {
-            fields.push(FieldInfo::read(reader)?);
+            class_file
+                .fields
+                .push(FieldInfo::read(reader, &class_file)?);
         }
 
         let methods_count = reader.read_u16()?;
         println!("Class file contains {} methods", methods_count);
 
-        let mut methods: Vec<MethodInfo> = Vec::new();
-
         for _ in 0..methods_count {
-            methods.push(MethodInfo::read(reader)?);
+            class_file
+                .methods
+                .push(MethodInfo::read(reader, &class_file)?);
         }
 
         let attributes_count = reader.read_u16()?;
         println!("Class file contains {} attributes", attributes_count);
 
-        let mut attributes: Vec<AttributeInfo> = Vec::new();
-
         for _ in 0..attributes_count {
-            attributes.push(AttributeInfo::read(reader)?);
+            class_file
+                .attributes
+                .push(Attribute::read(reader, &class_file)?);
         }
 
-        Ok(Self {
-            constant_pool,
-            access_flags,
-            this_class,
-            super_class,
-            interfaces,
-            fields,
-            methods,
-            attributes,
-        })
+        Ok(class_file)
+    }
+
+    pub fn new() -> Self {
+        Self {
+            constant_pool: ConstantPool::new(),
+            access_flags: 0,
+            this_class: 0,
+            super_class: 0,
+            interfaces: Vec::new(),
+            fields: Vec::new(),
+            methods: Vec::new(),
+            attributes: Vec::new(),
+        }
     }
 }

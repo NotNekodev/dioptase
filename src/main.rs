@@ -68,7 +68,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
             entry.access_flags.bits()
         );
 
-        println!("Method #{} Attributes:", i);
+        /*println!("Method #{} Attributes:", i);
 
         for (j, att_entry) in entry.attributes.iter().enumerate() {
             println!(
@@ -79,7 +79,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
                     .get_utf8(att_entry.attribute_name_idx),
                 att_entry.info.iter().count()
             );
-        }
+        }*/
 
         println!();
     }

@@ -97,4 +97,10 @@ impl ConstantPool {
             None => panic!("entries[{}] index out of bounds", index),
         }
     }
+
+    pub fn new() -> Self {
+        Self {
+            entries: Vec::new(),
+        }
+    }
 }

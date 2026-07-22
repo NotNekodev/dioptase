@@ -1,4 +1,4 @@
-use crate::class::{attributes::AttributeInfo, reader::ClassReader};
+use crate::class::{attributes::Attribute, class_file::ClassFile, reader::ClassReader};
 use anyhow::Result;
 use bitflags::bitflags;
 use std::error::Error;
@@ -27,11 +27,14 @@ pub struct MethodInfo {
     pub name_index: u16,
     pub descriptor_index: u16,
     pub access_flags: MethodAccessFlags,
-    pub attributes: Vec<AttributeInfo>,
+    pub attributes: Vec<Attribute>,
 }
 
 impl MethodInfo {
-    pub fn read(reader: &mut ClassReader) -> Result<Self, Box<dyn Error + Send + Sync + 'static>> {
+    pub fn read(
+        reader: &mut ClassReader,
+        class_file: &ClassFile,
+    ) -> Result<Self, Box<dyn Error + Send + Sync + 'static>> {
         let access_flags_bitmask = reader.read_u16()?;
         let access_flags = MethodAccessFlags::from_bits_truncate(access_flags_bitmask);
 
@@ -39,10 +42,10 @@ impl MethodInfo {
         let descriptor_idx = reader.read_u16()?;
 
         let attributes_count = reader.read_u16()?;
-        let mut attributes: Vec<AttributeInfo> = Vec::new();
+        let mut attributes: Vec<Attribute> = Vec::new();
 
         for _ in 0..attributes_count {
-            attributes.push(AttributeInfo::read(reader)?);
+            attributes.push(Attribute::read(reader, class_file)?);
         }
 
         Ok(Self {
