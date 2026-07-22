@@ -18,7 +18,7 @@ impl ClassFile {
 
         if magic != 0xCAFEBABE {
             panic!(
-                "Invalid class file, signature is not 0xCAFEBABE bu {:#010X}",
+                "Invalid class file, signature is not 0xCAFEBABE but {:#010X}",
                 magic
             );
         }
