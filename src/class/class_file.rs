@@ -1,6 +1,7 @@
 use crate::class::{
     constant_pool::{ConstantPool, ConstantPoolEntry},
     field::FieldInfo,
+    method::MethodInfo,
     reader::ClassReader,
 };
 use std::error::Error;
@@ -13,6 +14,7 @@ pub struct ClassFile {
     pub super_class: u16,
     pub interfaces: Vec<u16>,
     pub fields: Vec<FieldInfo>,
+    pub methods: Vec<MethodInfo>,
 }
 
 impl ClassFile {
@@ -84,14 +86,14 @@ impl ClassFile {
             fields.push(FieldInfo::read(reader)?);
         }
 
-        let fields_count = reader.read_u16()?;
+        let methods_count = reader.read_u16()?;
 
-        println!("Fields count: {}", fields_count);
+        println!("Methods count: {}", methods_count);
 
-        let mut fields: Vec<FieldInfo> = Vec::new();
+        let mut methods: Vec<MethodInfo> = Vec::new();
 
-        for _ in 0..fields_count {
-            fields.push(FieldInfo::read(reader)?);
+        for _ in 0..methods_count {
+            methods.push(MethodInfo::read(reader)?);
         }
 
         Ok(Self {
@@ -101,6 +103,7 @@ impl ClassFile {
             super_class,
             interfaces,
             fields,
+            methods,
         })
     }
 }
