@@ -31,7 +31,11 @@ impl ClassFile {
         }
 
         let _minor = reader.read_u16()?;
-        let _major = reader.read_u16()?;
+        let major = reader.read_u16()?;
+
+        if major != 52 {
+            panic!("Invalid class file, version is not 52 but {}", major);
+        }
 
         let constant_pool = ConstantPool::read(reader)?;
 
