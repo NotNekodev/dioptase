@@ -1,4 +1,5 @@
 use crate::class::{
+    attributes::AttributeInfo,
     constant_pool::{ConstantPool, ConstantPoolEntry},
     field::FieldInfo,
     method::MethodInfo,
@@ -15,6 +16,7 @@ pub struct ClassFile {
     pub interfaces: Vec<u16>,
     pub fields: Vec<FieldInfo>,
     pub methods: Vec<MethodInfo>,
+    pub attributes: Vec<AttributeInfo>,
 }
 
 impl ClassFile {
@@ -60,7 +62,7 @@ impl ClassFile {
 
         let interfaces_count = reader.read_u16()?;
 
-        println!("Interface count: {}", interfaces_count);
+        println!("Class file contains {} interfaces", interfaces_count);
 
         let mut interfaces = Vec::new();
 
@@ -78,7 +80,7 @@ impl ClassFile {
 
         let fields_count = reader.read_u16()?;
 
-        println!("Fields count: {}", fields_count);
+        println!("Class file contains {} fields", fields_count);
 
         let mut fields: Vec<FieldInfo> = Vec::new();
 
@@ -87,13 +89,21 @@ impl ClassFile {
         }
 
         let methods_count = reader.read_u16()?;
-
-        println!("Methods count: {}", methods_count);
+        println!("Class file contains {} methods", methods_count);
 
         let mut methods: Vec<MethodInfo> = Vec::new();
 
         for _ in 0..methods_count {
             methods.push(MethodInfo::read(reader)?);
+        }
+
+        let attributes_count = reader.read_u16()?;
+        println!("Class file contains {} attributes", attributes_count);
+
+        let mut attributes: Vec<AttributeInfo> = Vec::new();
+
+        for _ in 0..attributes_count {
+            attributes.push(AttributeInfo::read(reader)?);
         }
 
         Ok(Self {
@@ -104,6 +114,7 @@ impl ClassFile {
             interfaces,
             fields,
             methods,
+            attributes,
         })
     }
 }
