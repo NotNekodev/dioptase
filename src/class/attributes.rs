@@ -28,6 +28,9 @@ pub enum Attribute {
         exception_table: Vec<ExceptionTableEntry>,
         attributes: Vec<Attribute>,
     },
+    SourceFile {
+        sourcefile_idx: u16, // constant pool index to the source file name
+    },
     LineNumberTable {
         entries: Vec<LineNumberTableEntry>,
     },
@@ -112,6 +115,11 @@ impl Attribute {
                 return Ok(Self::LineNumberTable {
                     entries: lnt_entries,
                 });
+            }
+            "SourceFile" => {
+                let sourcefile_idx = reader.read_u16()?;
+
+                return Ok(Self::SourceFile { sourcefile_idx });
             }
             _ => {
                 return Err(Box::new(std::io::Error::new(
