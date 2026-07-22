@@ -86,4 +86,14 @@ impl ConstantPool {
 
         Self { entries }
     }
+
+    pub fn get_utf8(&self, index: u16) -> String {
+        match self.entries.get(index as usize) {
+            Some(ConstantPoolEntry::Utf8(s)) => {
+                return s.clone();
+            }
+            Some(_) => panic!("entries[{}] does not point to a CONSTANT_Utf8 entry", index),
+            None => panic!("entries[{}] index out of bounds", index),
+        }
+    }
 }
