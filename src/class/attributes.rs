@@ -60,11 +60,7 @@ impl Attribute {
                 let max_locals = reader.read_u16()?;
 
                 let code_length = reader.read_u32()?;
-                let mut code: Vec<u8> = Vec::new();
-
-                for _ in 0..code_length {
-                    code.push(reader.read_u8());
-                }
+                let code: Vec<u8> = reader.read_bytes(code_length as usize)?;
 
                 let exception_table_length = reader.read_u16()?;
                 let mut exception_table: Vec<ExceptionTableEntry> = Vec::new();

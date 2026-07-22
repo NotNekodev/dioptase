@@ -35,17 +35,13 @@ impl ConstantPool {
         let mut i = 1;
 
         while i < count {
-            let tag = reader.read_u8();
+            let tag = reader.read_u8()?;
 
             let entry = match tag {
                 1 => {
                     let length = reader.read_u16()?;
 
-                    let mut bytes = Vec::new();
-
-                    for _ in 0..length {
-                        bytes.push(reader.read_u8());
-                    }
+                    let bytes = reader.read_bytes(length as usize)?;
 
                     let string = mutf8::decode(bytes.as_slice())?.into_owned();
 
