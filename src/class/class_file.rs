@@ -2,6 +2,7 @@ use crate::class::{
     constant_pool::{ConstantPool, ConstantPoolEntry},
     reader::ClassReader,
 };
+use std::error::Error;
 
 #[allow(dead_code)]
 pub struct ClassFile {
@@ -13,8 +14,8 @@ pub struct ClassFile {
 }
 
 impl ClassFile {
-    pub fn read(reader: &mut ClassReader) -> Self {
-        let magic = reader.read_u32();
+    pub fn read(reader: &mut ClassReader) -> Result<Self, Box<dyn Error + Send + Sync + 'static>> {
+        let magic = reader.read_u32()?;
 
         if magic != 0xCAFEBABE {
             panic!(
@@ -23,19 +24,19 @@ impl ClassFile {
             );
         }
 
-        let _minor = reader.read_u16();
-        let _major = reader.read_u16();
+        let _minor = reader.read_u16()?;
+        let _major = reader.read_u16()?;
 
-        let constant_pool = ConstantPool::read(reader);
+        let constant_pool = ConstantPool::read(reader)?;
 
         println!(
             "Constant pool size: {} entries",
             constant_pool.entries.iter().count() - 1
         );
 
-        let access_flags = reader.read_u16();
-        let this_class = reader.read_u16();
-        let super_class = reader.read_u16();
+        let access_flags = reader.read_u16()?;
+        let this_class = reader.read_u16()?;
+        let super_class = reader.read_u16()?;
 
         println!("Access flags: {}", access_flags);
         println!("this_class: {}", this_class);
@@ -53,14 +54,14 @@ impl ClassFile {
             None => panic!("super_class index out of bounds"),
         }
 
-        let interfaces_count = reader.read_u16();
+        let interfaces_count = reader.read_u16()?;
 
         println!("Interface count: {}", interfaces_count);
 
         let mut interfaces = Vec::new();
 
         for i in 0..interfaces_count {
-            let idx = reader.read_u16();
+            let idx = reader.read_u16()?;
 
             match constant_pool.entries.get(idx as usize) {
                 Some(ConstantPoolEntry::Class { .. }) => {}
@@ -71,12 +72,12 @@ impl ClassFile {
             interfaces.push(idx);
         }
 
-        Self {
+        Ok(Self {
             constant_pool,
             access_flags,
             this_class,
             super_class,
             interfaces,
-        }
+        })
     }
 }

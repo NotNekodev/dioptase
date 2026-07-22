@@ -1,4 +1,5 @@
 use crate::class::reader::ClassReader;
+use std::error::Error;
 
 pub struct ConstantPool {
     pub entries: Vec<ConstantPoolEntry>,
@@ -21,8 +22,8 @@ pub enum ConstantPoolEntry {
 }
 
 impl ConstantPool {
-    pub fn read(reader: &mut ClassReader) -> Self {
-        let count = reader.read_u16();
+    pub fn read(reader: &mut ClassReader) -> Result<Self, Box<dyn Error + Send + Sync + 'static>> {
+        let count = reader.read_u16()?;
 
         let mut entries = Vec::new();
 
@@ -36,7 +37,7 @@ impl ConstantPool {
 
             let entry = match tag {
                 1 => {
-                    let length = reader.read_u16();
+                    let length = reader.read_u16()?;
 
                     let mut bytes = Vec::new();
 
@@ -44,20 +45,20 @@ impl ConstantPool {
                         bytes.push(reader.read_u8());
                     }
 
-                    let string = String::from_utf8(bytes).unwrap();
+                    let string = String::from_utf8(bytes)?;
 
                     ConstantPoolEntry::Utf8(string)
                 }
 
                 7 => {
-                    let name_index = reader.read_u16();
+                    let name_index = reader.read_u16()?;
 
                     ConstantPoolEntry::Class { name_index }
                 }
 
                 10 => {
-                    let class_index = reader.read_u16();
-                    let name_and_type_index = reader.read_u16();
+                    let class_index = reader.read_u16()?;
+                    let name_and_type_index = reader.read_u16()?;
 
                     ConstantPoolEntry::MethodRef {
                         class_index,
@@ -66,8 +67,8 @@ impl ConstantPool {
                 }
 
                 12 => {
-                    let name_index = reader.read_u16();
-                    let descriptor_index = reader.read_u16();
+                    let name_index = reader.read_u16()?;
+                    let descriptor_index = reader.read_u16()?;
 
                     ConstantPoolEntry::NameAndType {
                         name_index,
@@ -84,6 +85,6 @@ impl ConstantPool {
             i += 1;
         }
 
-        Self { entries }
+        Ok(Self { entries })
     }
 }

@@ -1,35 +1,30 @@
+use crate::{
+    class::{class_file::ClassFile, constant_pool::ConstantPoolEntry, reader::ClassReader},
+    cli::Cli,
+};
+use anyhow::{Context, Result};
+use clap::Parser;
+use std::{env, error::Error, fs};
+
 mod class;
+mod cli;
 
-use std::{env, fs, process::exit};
+fn main() -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
+    let cli = Cli::parse();
 
-use class::reader::ClassReader;
-
-use crate::class::{class_file::ClassFile, constant_pool::ConstantPoolEntry};
-
-const VERSION_STRING: &str = "a0.0.1";
-
-fn main() {
-    let args: Vec<String> = env::args().collect();
-
-    if args.iter().count() < 2 {
-        panic!("No .class file to run provided!");
+    if cli.version {
+        println!("dioptase - {}", env!("CARGO_PKG_DESCRIPTION"));
+        println!("Version: {}", env!("CARGO_PKG_VERSION"));
+        println!("Copyright (C) 2026 NotNekodev and contributors");
+        println!("SPDX License Identifier: GPL-3.0-only");
+        return Ok(());
     }
 
-    if args.contains(&"-version".to_string()) {
-        println!("dioptase - A rust Java® SE8 Virtual Machine");
-        println!("Version {}", VERSION_STRING);
-        println!("Copyright (C) 2026 NotNekodev");
-        println!("SPDX-License-Identifier: GPL-3.0-only");
-
-        exit(0);
-    }
-
-    let class_file = &args[1];
-
-    let data: Vec<u8> = fs::read(class_file).unwrap();
+    let data: Vec<u8> = fs::read(cli.class_file.context("No class file provided")?)
+        .context("Could not read the provided class file")?;
     let mut class_reader: ClassReader = ClassReader::new(data);
 
-    let class_file = ClassFile::read(&mut class_reader);
+    let class_file = ClassFile::read(&mut class_reader)?;
 
     println!("\nConstant pool dump:");
 
@@ -59,4 +54,6 @@ fn main() {
             }
         );
     }
+
+    Ok(())
 }
