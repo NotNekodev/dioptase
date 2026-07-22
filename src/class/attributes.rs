@@ -11,6 +11,12 @@ pub struct ExceptionTableEntry {
 }
 
 #[allow(dead_code)]
+pub struct LineNumberTableEntry {
+    pub start_pc: u16,
+    pub line_number: u16,
+}
+
+#[allow(dead_code)]
 pub enum Attribute {
     ConstantValue {
         constantvalue_index: u16,
@@ -21,6 +27,9 @@ pub enum Attribute {
         code: Vec<u8>,
         exception_table: Vec<ExceptionTableEntry>,
         attributes: Vec<Attribute>,
+    },
+    LineNumberTable {
+        entries: Vec<LineNumberTableEntry>,
     },
 }
 
@@ -84,6 +93,24 @@ impl Attribute {
                     code: code,
                     exception_table: exception_table,
                     attributes: attributes,
+                });
+            }
+            "LineNumberTable" => {
+                let lnt_len = reader.read_u16()?; // lnt -> LineNumberTable
+                let mut lnt_entries: Vec<LineNumberTableEntry> = Vec::new();
+
+                for _ in 0..lnt_len {
+                    let start_pc = reader.read_u16()?;
+                    let line_number = reader.read_u16()?;
+
+                    lnt_entries.push(LineNumberTableEntry {
+                        start_pc,
+                        line_number,
+                    });
+                }
+
+                return Ok(Self::LineNumberTable {
+                    entries: lnt_entries,
                 });
             }
             _ => {
