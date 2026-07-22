@@ -1,5 +1,6 @@
 use crate::class::{
     constant_pool::{ConstantPool, ConstantPoolEntry},
+    field::FieldInfo,
     reader::ClassReader,
 };
 use std::error::Error;
@@ -11,6 +12,7 @@ pub struct ClassFile {
     pub this_class: u16,
     pub super_class: u16,
     pub interfaces: Vec<u16>,
+    pub fields: Vec<FieldInfo>,
 }
 
 impl ClassFile {
@@ -19,7 +21,7 @@ impl ClassFile {
 
         if magic != 0xCAFEBABE {
             panic!(
-                "Invalid class file, signature is not 0xCAFEBABE bu {:#010X}",
+                "Invalid class file, signature is not 0xCAFEBABE but {:#010X}",
                 magic
             );
         }
@@ -38,7 +40,7 @@ impl ClassFile {
         let this_class = reader.read_u16()?;
         let super_class = reader.read_u16()?;
 
-        println!("Access flags: {}", access_flags);
+        println!("Access flags: {:#X}", access_flags);
         println!("this_class: {}", this_class);
         println!("super_class: {}", super_class);
 
@@ -72,12 +74,33 @@ impl ClassFile {
             interfaces.push(idx);
         }
 
+        let fields_count = reader.read_u16()?;
+
+        println!("Fields count: {}", fields_count);
+
+        let mut fields: Vec<FieldInfo> = Vec::new();
+
+        for _ in 0..fields_count {
+            fields.push(FieldInfo::read(reader)?);
+        }
+
+        let fields_count = reader.read_u16()?;
+
+        println!("Fields count: {}", fields_count);
+
+        let mut fields: Vec<FieldInfo> = Vec::new();
+
+        for _ in 0..fields_count {
+            fields.push(FieldInfo::read(reader)?);
+        }
+
         Ok(Self {
             constant_pool,
             access_flags,
             this_class,
             super_class,
             interfaces,
+            fields,
         })
     }
 }
