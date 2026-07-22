@@ -60,7 +60,7 @@ fn main() {
         );
     }
 
-    println!("\nMethodInfo dump:");
+    println!("\nMethodInfo dump:\n");
 
     for (i, entry) in class_file.methods.iter().enumerate() {
         let name: String = class_file.constant_pool.get_utf8(entry.name_index);
@@ -78,12 +78,14 @@ fn main() {
         for (j, att_entry) in entry.attributes.iter().enumerate() {
             println!(
                 "\tAttribute #{}: Name={} DataSize={:#06x}",
-                i,
+                j,
                 class_file
                     .constant_pool
                     .get_utf8(att_entry.attribute_name_idx),
                 att_entry.info.iter().count()
             );
         }
+
+        println!();
     }
 }
