@@ -61,13 +61,29 @@ impl Interpreter {
                 Opcode::ILoad2 => frame.operand_stack.push(frame.locals[2].clone()),
                 Opcode::ILoad3 => frame.operand_stack.push(frame.locals[3].clone()),
 
-                Opcode::IStore1 => {
-                    let value = frame
+                Opcode::IStore0 => {
+                    frame.locals[0] = frame
                         .operand_stack
                         .pop()
-                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
-
-                    frame.locals[1] = value;
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?
+                }
+                Opcode::IStore1 => {
+                    frame.locals[1] = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?
+                }
+                Opcode::IStore2 => {
+                    frame.locals[2] = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?
+                }
+                Opcode::IStore3 => {
+                    frame.locals[3] = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?
                 }
 
                 Opcode::IAdd => {
