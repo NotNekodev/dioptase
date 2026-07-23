@@ -53,6 +53,31 @@ impl Interpreter {
                 Opcode::ALoad2 => frame.operand_stack.push(frame.locals[2].clone()),
                 Opcode::ALoad3 => frame.operand_stack.push(frame.locals[3].clone()),
 
+                Opcode::AStore0 => {
+                    frame.locals[0] = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+                }
+                Opcode::AStore1 => {
+                    frame.locals[1] = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+                }
+                Opcode::AStore2 => {
+                    frame.locals[2] = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+                }
+                Opcode::AStore3 => {
+                    frame.locals[3] = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+                }
+
                 Opcode::IStore0 => {
                     frame.locals[0] = frame
                         .operand_stack
