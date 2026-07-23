@@ -86,6 +86,24 @@ impl Interpreter {
                     }
                 }
 
+                Opcode::ISub => {
+                    let value2 = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+                    let value1 = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+
+                    match (value1, value2) {
+                        (Value::Int(x), Value::Int(y)) => {
+                            frame.operand_stack.push(Value::Int(x.wrapping_sub(y)));
+                        }
+                        _ => return Err(RuntimeError::InvalidType),
+                    }
+                }
+
                 Opcode::IReturn => {
                     let ret = frame
                         .operand_stack
