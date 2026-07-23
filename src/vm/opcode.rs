@@ -16,6 +16,8 @@ pub enum Opcode {
     ILoad2 = 0x1c,
     ILoad3 = 0x1d,
 
+    Dup = 0x59,
+
     IAdd = 0x60,
     ISub = 0x64,
     IMul = 0x68,
@@ -62,6 +64,8 @@ impl TryFrom<u8> for Opcode {
             0x3c => Ok(Self::IStore1),
             0x3d => Ok(Self::IStore2),
             0x3e => Ok(Self::IStore3),
+
+            0x59 => Ok(Self::Dup),
 
             0x60 => Ok(Self::IAdd),
             0x64 => Ok(Self::ISub),

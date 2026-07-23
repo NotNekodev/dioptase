@@ -73,6 +73,15 @@ impl Interpreter {
                         .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?
                 }
 
+                Opcode::Dup => {
+                    let top = frame
+                        .operand_stack
+                        .last()
+                        .cloned()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+                    frame.operand_stack.push(top);
+                }
+
                 Opcode::IAdd => {
                     let value2 = frame
                         .operand_stack
