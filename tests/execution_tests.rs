@@ -40,7 +40,9 @@ struct TestFixture<'a> {
 impl<'a> TestFixture<'a> {
     pub fn test(&self) -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
         Command::new("javac")
-            .arg("--release")
+            .arg("-source")
+            .arg("8")
+            .arg("-target")
             .arg("8")
             .arg(format!("./tests/fixtures/{}", &self.source_path))
             .output()?;
