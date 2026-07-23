@@ -19,6 +19,10 @@ pub enum ConstantPoolEntry {
         class_index: u16,
         name_and_type_index: u16,
     },
+    FieldRef {
+        class_index: u16,
+        name_and_type_index: u16,
+    },
     NameAndType {
         name_index: u16,
         descriptor_index: u16,
@@ -55,6 +59,16 @@ impl ConstantPool {
                     let name_index = reader.read_u16()?;
 
                     ConstantPoolEntry::Class { name_index }
+                }
+
+                9 => {
+                    let class_index = reader.read_u16()?;
+                    let name_and_type_index = reader.read_u16()?;
+
+                    ConstantPoolEntry::FieldRef {
+                        class_index,
+                        name_and_type_index,
+                    }
                 }
 
                 10 => {
