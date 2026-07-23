@@ -106,6 +106,33 @@ impl ConstantPool {
         }
     }
 
+    pub fn get_name_and_type(&self, index: u16) -> Result<(String, String), RuntimeError> {
+        match self.entries.get(index as usize) {
+            Some(ConstantPoolEntry::NameAndType {
+                name_index,
+                descriptor_index,
+            }) => Ok((
+                self.get_utf8(*name_index)?,
+                self.get_utf8(*descriptor_index)?,
+            )),
+            _ => Err(RuntimeError::InvalidConstantPoolEntry),
+        }
+    }
+
+    pub fn get_method_ref(&self, index: u16) -> Result<(String, String, String), RuntimeError> {
+        match self.entries.get(index as usize) {
+            Some(ConstantPoolEntry::MethodRef {
+                class_index,
+                name_and_type_index,
+            }) => {
+                let class_name = self.get_class_name(*class_index)?;
+                let (name, descriptor) = self.get_name_and_type(*name_and_type_index)?;
+                Ok((class_name, name, descriptor))
+            }
+            _ => Err(RuntimeError::InvalidConstantPoolEntry),
+        }
+    }
+
     pub fn new() -> Self {
         Self {
             entries: Vec::new(),
