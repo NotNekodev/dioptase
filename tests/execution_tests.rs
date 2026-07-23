@@ -1,6 +1,6 @@
 use std::{error::Error, process::Command};
 
-const FIXTURES: [TestFixture; 5] = [
+const FIXTURES: [TestFixture; 6] = [
     TestFixture {
         source_path: "add_test/AddTest.java",
         entry_class: "AddTest",
@@ -30,6 +30,12 @@ const FIXTURES: [TestFixture; 5] = [
         entry_class: "HeapTest",
         class_path: "heap_test",
         expected_return: 42,
+    },
+    TestFixture {
+        source_path: "goto_test/GotoTest.java",
+        entry_class: "GotoTest",
+        class_path: "goto_test",
+        expected_return: 100,
     },
 ];
 

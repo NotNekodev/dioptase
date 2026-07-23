@@ -526,6 +526,27 @@ impl Interpreter {
                     let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                     frame.operand_stack.push(Value::Reference(Some(obj_ref)));
                 }
+
+                Opcode::IInc => {
+                    let index = code[frame.pc];
+                    let amount = code[frame.pc + 1] as i8;
+                    frame.pc += 2;
+
+                    let local_var: &mut Value =
+                        frame
+                            .locals
+                            .get_mut(index as usize)
+                            .ok_or(RuntimeError::NoLocalVar {
+                                index: index as usize,
+                            })?;
+
+                    match local_var {
+                        Value::Int(val) => {
+                            *val = val.wrapping_add(amount as i32);
+                        }
+                        _ => return Err(RuntimeError::InvalidType),
+                    }
+                }
             }
         }
     }

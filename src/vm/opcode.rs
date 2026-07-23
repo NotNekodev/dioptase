@@ -32,6 +32,8 @@ pub enum Opcode {
     ISub = 0x64,
     IMul = 0x68,
 
+    IInc = 0x86,
+
     IStore0 = 0x3b,
     IStore1 = 0x3c,
     IStore2 = 0x3d,
@@ -95,6 +97,8 @@ impl TryFrom<u8> for Opcode {
             0x60 => Ok(Self::IAdd),
             0x64 => Ok(Self::ISub),
             0x68 => Ok(Self::IMul),
+
+            0x84 => Ok(Self::IInc),
 
             0x9f => Ok(Self::IfICmpEq),
             0xa0 => Ok(Self::IfICmpNe),

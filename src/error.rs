@@ -32,4 +32,7 @@ pub enum RuntimeError {
 
     #[error("Failed to load class {class} from classpath: {source_cp}")]
     ClassLoadError { class: String, source_cp: String },
+
+    #[error("Local variable at index {index} not found")]
+    NoLocalVar { index: usize },
 }
