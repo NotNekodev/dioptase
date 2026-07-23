@@ -17,6 +17,8 @@ jobs:
             expected: 75
           - name: AddTest
             expected: 8
+          - name: Factorial
+            expected: 120
 
     name: Test ${{ matrix.test.name }}
 
