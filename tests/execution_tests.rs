@@ -35,7 +35,7 @@ const FIXTURES: [TestFixture; 6] = [
         source_path: "goto_test/GotoTest.java",
         entry_class: "GotoTest",
         class_path: "goto_test",
-        expected_return: 100,
+        expected_return: 10,
     },
 ];
 

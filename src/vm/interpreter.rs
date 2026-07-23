@@ -547,6 +547,14 @@ impl Interpreter {
                         _ => return Err(RuntimeError::InvalidType),
                     }
                 }
+
+                Opcode::Goto => {
+                    let opcode_pc = frame.pc - 1;
+                    let offset = i16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
+                    frame.pc += 2;
+
+                    frame.pc = (opcode_pc as isize + offset as isize) as usize;
+                }
             }
         }
     }
