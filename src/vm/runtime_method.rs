@@ -1,3 +1,7 @@
+use std::str::FromStr;
+
+use jdescriptor::{MethodDescriptor, TypeDescriptor};
+
 use crate::{
     class::{
         attributes::Attribute,
@@ -70,5 +74,18 @@ impl RuntimeMethod {
 
             code: code,
         })
+    }
+
+    pub fn param_slot_count(&self) -> usize {
+        let descriptor = MethodDescriptor::from_str(&self.descriptor.as_str()).unwrap();
+
+        descriptor
+            .parameter_types()
+            .iter()
+            .map(|param| match param {
+                TypeDescriptor::Long | TypeDescriptor::Double => 2,
+                _ => 1,
+            })
+            .sum()
     }
 }

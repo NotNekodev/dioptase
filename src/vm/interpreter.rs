@@ -1,30 +1,46 @@
+use std::collections::HashMap;
+
 use crate::{
     error::RuntimeError,
-    vm::{opcode::Opcode, thread::Thread, value::Value},
+    vm::{
+        opcode::Opcode,
+        runtime_class::{ClassRef, RuntimeClass},
+        thread::Thread,
+        value::Value,
+    },
 };
 
 pub struct Interpreter;
 
 impl Interpreter {
-    pub fn run(thread: &mut Thread, method: &[u8]) -> Result<Value, RuntimeError> {
+    pub fn run(
+        classes: &[RuntimeClass],
+        classes_by_name: &HashMap<String, ClassRef>,
+        thread: &mut Thread,
+    ) -> Result<Value, RuntimeError> {
         loop {
             let thread_id = thread.id;
+            let (frame_class, frame_method_idx) = {
+                let f = thread
+                    .current_frame()
+                    .ok_or(RuntimeError::NoCurrentFrame { thread_id })?;
+                (f.class, f.method_index)
+            };
 
-            let frame = thread
-                .current_frame()
-                .ok_or(RuntimeError::NoCurrentFrame { thread_id })?;
+            let class = &classes[frame_class.0];
+            let method = &class.methods[frame_method_idx];
+            let code = &method.code;
 
-            let opcode_byte = method[frame.pc];
+            let frame = thread.current_frame().unwrap();
+            let op = code[frame.pc];
             frame.pc += 1;
 
             let opcode =
-                Opcode::try_from(opcode_byte).map_err(|_| RuntimeError::InvalidOpcode {
-                    opcode: opcode_byte,
-                })?;
+                Opcode::try_from(op).map_err(|_| RuntimeError::InvalidOpcode { opcode: op })?;
 
             match opcode {
                 Opcode::Bipush => {
-                    let value = method[frame.pc] as i8;
+                    let value = code[frame.pc] as i8;
                     frame.pc += 1;
 
                     frame.operand_stack.push(Value::Int(value as i32));

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     class::{class_file::ClassFile, method::MethodAccessFlags},
     error::RuntimeError,
@@ -14,6 +16,7 @@ use crate::{
 #[allow(dead_code)]
 pub struct VM {
     classes: Vec<RuntimeClass>,
+    classes_by_name: HashMap<String, ClassRef>,
     threads: Vec<Thread>,
     main_thread: ThreadRef,
 }
@@ -25,6 +28,7 @@ impl VM {
             classes: Vec::new(),
             threads: Vec::new(),
             main_thread: ThreadRef(0),
+            classes_by_name: HashMap::new(),
         }
     }
 
@@ -67,6 +71,8 @@ impl VM {
 
     pub fn add_class(&mut self, class: RuntimeClass) -> ClassRef {
         let id = self.classes.len();
+        self.classes_by_name
+            .insert(class.name.clone(), ClassRef(id));
         self.classes.push(class);
 
         ClassRef(id)
@@ -101,6 +107,8 @@ impl VM {
 
         let runtime_class = RuntimeClass::from_class_file(&class_file, super_class, class_ref)?;
 
+        self.classes_by_name
+            .insert(runtime_class.name.clone(), ClassRef(id));
         self.classes.push(runtime_class);
 
         Ok(class_ref)
@@ -135,16 +143,16 @@ impl VM {
 
         let method = self.get_method(class_ref, method_idx)?;
 
-        let code = method.code.clone();
         let max_locals = method.max_locals;
         let max_stack = method.max_stack;
 
-        let frame = Frame::new(max_locals, max_stack, method_idx);
-
-        self.get_thread(main_thread)?.push_frame(frame);
-
-        let result = Interpreter::run(self.get_thread(main_thread)?, &code)?;
-
+        let frame = Frame::new(max_locals, max_stack, class_ref, method_idx);
+        self.threads[main_thread.0].push_frame(frame);
+        let result = Interpreter::run(
+            &self.classes,
+            &self.classes_by_name,
+            &mut self.threads[main_thread.0],
+        )?;
         Ok(result)
     }
 }
