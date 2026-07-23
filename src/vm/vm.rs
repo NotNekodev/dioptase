@@ -132,14 +132,17 @@ impl VM {
     }
 
     pub fn load_class(&mut self, class_file: ClassFile) -> Result<ClassRef, RuntimeError> {
-        let id = self.classes.len();
-        let class_ref = ClassRef(id);
-
         let super_class = if class_file.super_class == 0 {
             None
         } else {
-            None
+            let super_name = class_file
+                .constant_pool
+                .get_class_name(class_file.super_class)?;
+            Some(self.resolve_class(&super_name)?)
         };
+
+        let id = self.classes.len();
+        let class_ref = ClassRef(id);
 
         let runtime_class = RuntimeClass::from_class_file(&class_file, super_class, class_ref)?;
 
