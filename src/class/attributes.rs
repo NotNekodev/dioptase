@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use crate::class::{class_file::ClassFile, reader::ClassReader};
+use crate::class::{class_file::ClassFile, reader::ClassReader, stack_map_frame::StackMapFrame};
 
 #[allow(dead_code)]
 pub struct ExceptionTableEntry {
@@ -33,6 +33,9 @@ pub enum Attribute {
     },
     LineNumberTable {
         entries: Vec<LineNumberTableEntry>,
+    },
+    StackMapTable {
+        entries: Vec<StackMapFrame>,
     },
 }
 
@@ -116,6 +119,17 @@ impl Attribute {
                 let sourcefile_idx = reader.read_u16()?;
 
                 return Ok(Self::SourceFile { sourcefile_idx });
+            }
+            "StackMapTable" => {
+                let entry_count = reader.read_u16()?;
+
+                let mut entries: Vec<StackMapFrame> = Vec::new();
+
+                for _ in 0..entry_count {
+                    entries.push(StackMapFrame::read(reader)?);
+                }
+
+                return Ok(Self::StackMapTable { entries });
             }
             _ => {
                 return Err(Box::new(std::io::Error::new(
