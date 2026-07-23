@@ -30,6 +30,21 @@ impl Interpreter {
                     frame.operand_stack.push(Value::Int(value as i32));
                 }
 
+                Opcode::ILoad1 => {
+                    let value = frame.locals[1].clone();
+
+                    frame.operand_stack.push(value);
+                }
+
+                Opcode::IStore1 => {
+                    let value = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+
+                    frame.locals[1] = value;
+                }
+
                 Opcode::IReturn => {
                     return frame
                         .operand_stack

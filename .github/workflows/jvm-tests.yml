@@ -13,7 +13,7 @@ jobs:
         test:
           - name: ReturnTest
             expected: 69
-          - name: AddTest
+          - name: OptimizedAddTest
             expected: 75
 
     name: Test ${{ matrix.test.name }}
