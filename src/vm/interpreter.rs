@@ -825,6 +825,44 @@ impl Interpreter {
 
                     array.elements[index] = Value::Int(value);
                 }
+
+                Opcode::IALoad => {
+                    let index = match frame.operand_stack.pop() {
+                        Some(Value::Int(n)) => n as usize,
+                        _ => return Err(RuntimeError::InvalidType),
+                    };
+
+                    let arrayref = match frame.operand_stack.pop() {
+                        Some(Value::Reference(aref)) => aref,
+                        _ => return Err(RuntimeError::InvalidType),
+                    };
+
+                    let reference = match arrayref {
+                        Some(value) => value,
+                        None => {
+                            return Err(RuntimeError::NullPointerException {
+                                reference: ObjectRef(0),
+                            });
+                        }
+                    };
+
+                    let value = {
+                        let array = vm.heap_mut().get_array_mut(reference)?;
+
+                        match array.elements.get(index) {
+                            Some(v) => v.clone(),
+                            None => {
+                                return Err(RuntimeError::ArrayIndexOutOfBoundsException {
+                                    index,
+                                    array: reference,
+                                });
+                            }
+                        }
+                    };
+
+                    let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                    frame.operand_stack.push(value);
+                }
             }
         }
     }
