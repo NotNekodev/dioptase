@@ -16,6 +16,11 @@ pub enum Opcode {
     ILoad2 = 0x1c,
     ILoad3 = 0x1d,
 
+    ALoad0 = 0x2a,
+    ALoad1 = 0x2b,
+    ALoad2 = 0x2c,
+    ALoad3 = 0x2d,
+
     Dup = 0x59,
 
     IAdd = 0x60,
@@ -60,6 +65,11 @@ impl TryFrom<u8> for Opcode {
             0x1b => Ok(Self::ILoad1),
             0x1c => Ok(Self::ILoad2),
             0x1d => Ok(Self::ILoad3),
+
+            0x2a => Ok(Self::ALoad0),
+            0x2b => Ok(Self::ALoad1),
+            0x2c => Ok(Self::ALoad2),
+            0x2d => Ok(Self::ALoad3),
 
             0x3b => Ok(Self::IStore0),
             0x3c => Ok(Self::IStore1),
