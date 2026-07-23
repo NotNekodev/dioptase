@@ -3,11 +3,13 @@ use simd_cesu8::mutf8;
 use crate::{class::reader::ClassReader, error::RuntimeError};
 use std::error::Error;
 
+#[derive(Clone)]
 pub struct ConstantPool {
     pub entries: Vec<ConstantPoolEntry>,
 }
 
 #[allow(dead_code)]
+#[derive(Clone)]
 pub enum ConstantPoolEntry {
     Utf8(String),
     Class {
