@@ -8,9 +8,17 @@ use crate::{
         constant_pool::ConstantPool,
         method::{MethodAccessFlags, MethodInfo},
     },
-    error::RuntimeError,
+    error::{InternalError, RuntimeError},
     vm::runtime_class::ClassRef,
 };
+
+#[derive(Clone)]
+pub struct RuntimeExceptionHandler {
+    pub start_pc: u16,
+    pub end_pc: u16,
+    pub handler_pc: u16,
+    pub catch_class: Option<String>, // None = catch-all (used for `finally`)
+}
 
 #[allow(dead_code)]
 pub struct RuntimeMethod {
@@ -23,6 +31,8 @@ pub struct RuntimeMethod {
     pub max_locals: usize,
 
     pub code: Rc<[u8]>,
+
+    pub exception_handlers: Vec<RuntimeExceptionHandler>,
 }
 
 impl RuntimeMethod {
@@ -57,9 +67,32 @@ impl RuntimeMethod {
 
         if !found_code_attribute {
             if !method.access_flags.contains(MethodAccessFlags::ABSTRACT) {
-                return Err(RuntimeError::NoCodeInMethod {
+                return Err(RuntimeError::Internal(InternalError::NoCodeInMethod {
                     method: method_str.clone(),
-                });
+                }));
+            }
+        }
+
+        let mut exception_handlers = Vec::new();
+
+        for attribute in &method.attributes {
+            if let Attribute::Code {
+                exception_table, ..
+            } = attribute
+            {
+                for entry in exception_table {
+                    let catch_class = if entry.catch_type == 0 {
+                        None
+                    } else {
+                        Some(constant_pool.get_class_name(entry.catch_type)?)
+                    };
+                    exception_handlers.push(RuntimeExceptionHandler {
+                        start_pc: entry.start_pc,
+                        end_pc: entry.end_pc,
+                        handler_pc: entry.handler_pc,
+                        catch_class,
+                    });
+                }
             }
         }
 
@@ -73,12 +106,13 @@ impl RuntimeMethod {
             max_locals: max_locals,
 
             code: code.into(),
+            exception_handlers,
         })
     }
 
     pub fn param_slot_count_from_descriptor(descriptor: &str) -> Result<usize, RuntimeError> {
         let d = MethodDescriptor::from_str(descriptor)
-            .map_err(|_| RuntimeError::InvalidConstantPoolEntry)?;
+            .map_err(|_| InternalError::InvalidConstantPoolEntry)?;
         Ok(d.parameter_types()
             .iter()
             .map(|p| match p {

@@ -1,6 +1,6 @@
 use crate::{
     cli::Cli,
-    error::RuntimeError,
+    error::{InternalError, RuntimeError},
     vm::{classpath::ClassPath, value::Value, vm::VM},
 };
 use anyhow::Result;
@@ -55,10 +55,16 @@ fn real_main() -> Result<i32, Box<dyn Error + Send + Sync + 'static>> {
     let mut vm: VM = VM::new();
     vm.set_classpath(classpath);
 
-    let ret_value = vm.run_main(main_class)?;
-
-    match ret_value {
-        Value::Int(val) => Ok(val),
-        _ => return Err(Box::new(RuntimeError::InvalidType)),
+    match vm.run_main(main_class) {
+        Ok(Value::Int(val)) => Ok(val),
+        Ok(_) => Err(Box::new(RuntimeError::from(InternalError::InvalidType))),
+        Err(RuntimeError::Thrown(obj_ref)) => {
+            eprintln!(
+                "\x1b[1;31merror:\x1b[0m Exception in thread \"main\" {}",
+                vm.describe_exception(obj_ref)
+            );
+            Ok(1)
+        }
+        Err(e) => Err(Box::new(e)),
     }
 }

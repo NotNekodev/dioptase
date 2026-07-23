@@ -2,13 +2,14 @@ use std::collections::HashMap;
 
 use crate::{
     class::{class_file::ClassFile, method::MethodAccessFlags, reader::ClassReader},
-    error::RuntimeError,
+    error::{InternalError, RuntimeError},
     vm::{
         classpath::ClassPath,
         frame::Frame,
         heap::Heap,
         interpreter::Interpreter,
         runtime_class::{ClassRef, RuntimeClass},
+        runtime_field::RuntimeField,
         runtime_method::RuntimeMethod,
         thread::{Thread, ThreadRef},
         value::{ObjectRef, Value},
@@ -24,6 +25,7 @@ pub struct VM {
     classpath: ClassPath,
     heap: Heap,
     static_storage: HashMap<ClassRef, ObjectRef>,
+    exceptions_registered: bool,
 }
 
 #[allow(dead_code)]
@@ -37,6 +39,7 @@ impl VM {
             classpath: ClassPath::empty(),
             heap: Heap::new(),
             static_storage: HashMap::new(),
+            exceptions_registered: false,
         }
     }
 
@@ -50,19 +53,19 @@ impl VM {
         }
 
         let path = self.classpath.find_class_file(binary_name).ok_or_else(|| {
-            RuntimeError::ClassNotFound {
+            InternalError::ClassNotFound {
                 class: binary_name.to_string(),
             }
         })?;
 
-        let data = std::fs::read(&path).map_err(|e| RuntimeError::ClassLoadError {
+        let data = std::fs::read(&path).map_err(|e| InternalError::ClassLoadError {
             class: binary_name.to_string(),
             source_cp: e.to_string(),
         })?;
 
         let mut reader = ClassReader::new(data);
         let class_file =
-            ClassFile::read(&mut reader).map_err(|e| RuntimeError::ClassLoadError {
+            ClassFile::read(&mut reader).map_err(|e| InternalError::ClassLoadError {
                 class: binary_name.to_string(),
                 source_cp: e.to_string(),
             })?;
@@ -76,9 +79,9 @@ impl VM {
         match option {
             Some(class) => return Ok(class),
             None => {
-                return Err(RuntimeError::ClassNotFound {
+                return Err(RuntimeError::Internal(InternalError::ClassNotFound {
                     class: format!("(index {}", class_index.0),
-                });
+                }));
             }
         }
     }
@@ -88,18 +91,18 @@ impl VM {
         class_index: ClassRef,
         method_index: usize,
     ) -> Result<&RuntimeMethod, RuntimeError> {
-        let class = self
-            .classes
-            .get(class_index.0)
-            .ok_or_else(|| RuntimeError::ClassNotFound {
-                class: format!("(index {}", class_index.0),
-            })?;
+        let class =
+            self.classes
+                .get(class_index.0)
+                .ok_or_else(|| InternalError::ClassNotFound {
+                    class: format!("(index {}", class_index.0),
+                })?;
 
         let method =
             class
                 .methods
                 .get(method_index)
-                .ok_or_else(|| RuntimeError::MethodNotFound {
+                .ok_or_else(|| InternalError::MethodNotFound {
                     class: class.name.clone(),
                     method: format!("(index {}", method_index),
                 })?;
@@ -127,9 +130,9 @@ impl VM {
 
         match option {
             Some(thread) => Ok(thread),
-            None => Err(RuntimeError::ThreadNotFound {
+            None => Err(RuntimeError::Internal(InternalError::ThreadNotFound {
                 thread_id: thread_ref.0,
-            }),
+            })),
         }
     }
 
@@ -158,12 +161,11 @@ impl VM {
     }
 
     pub fn static_storage_ref(&self, class_ref: ClassRef) -> Result<ObjectRef, RuntimeError> {
-        self.static_storage
-            .get(&class_ref)
-            .copied()
-            .ok_or_else(|| RuntimeError::ClassNotFound {
+        self.static_storage.get(&class_ref).copied().ok_or_else(|| {
+            RuntimeError::Internal(InternalError::ClassNotFound {
                 class: format!("(statics uninitialized for class index {})", class_ref.0),
             })
+        })
     }
 
     pub fn load_class(&mut self, class_file: ClassFile) -> Result<ClassRef, RuntimeError> {
@@ -264,9 +266,93 @@ impl VM {
             current = class.super_class;
         }
 
-        Err(RuntimeError::MethodNotFound {
+        Err(RuntimeError::Internal(InternalError::MethodNotFound {
             class: self.get_class(start)?.name.clone(),
             method: name.to_string(),
-        })
+        }))
+    }
+
+    fn register_synthetic_class(&mut self, name: &str, super_class: Option<ClassRef>) -> ClassRef {
+        let mut class = RuntimeClass::new(name.to_string(), super_class);
+        class.instance_fields.push(RuntimeField {
+            name: "message".to_string(),
+            descriptor: "Ljava/lang/String;".to_string(),
+            slot: 0,
+        });
+        self.add_class(class)
+    }
+
+    fn ensure_exceptions_registered(&mut self) -> Result<(), RuntimeError> {
+        if self.exceptions_registered {
+            return Ok(());
+        }
+        let object_ref = self.resolve_class("java/lang/Object")?;
+
+        let throwable = self.register_synthetic_class("java/lang/Throwable", Some(object_ref));
+        let exception = self.register_synthetic_class("java/lang/Exception", Some(throwable));
+        let runtime_exception =
+            self.register_synthetic_class("java/lang/RuntimeException", Some(exception));
+        let _error = self.register_synthetic_class("java/lang/Error", Some(throwable));
+
+        for name in [
+            "java/lang/NullPointerException",
+            "java/lang/ArrayIndexOutOfBoundsException",
+            "java/lang/ArrayStoreException",
+            "java/lang/NegativeArraySizeException",
+            "java/lang/ArithmeticException",
+            "java/lang/ClassCastException",
+        ] {
+            self.register_synthetic_class(name, Some(runtime_exception));
+        }
+
+        self.exceptions_registered = true;
+        Ok(())
+    }
+
+    pub fn throw(&mut self, class_name: &str, message: Option<&str>) -> RuntimeError {
+        if let Err(e) = self.ensure_exceptions_registered() {
+            return e;
+        }
+        let class_ref = match self.resolve_class(class_name) {
+            Ok(c) => c,
+            Err(e) => return e,
+        };
+        let slot_count = self
+            .get_class(class_ref)
+            .map(|c| c.instance_slot_count())
+            .unwrap_or(1);
+        let obj_ref = self.heap_mut().allocate_object(class_ref, slot_count);
+
+        if let Some(msg) = message {
+            if let Ok(class) = self.get_class(class_ref) {
+                if let Some(field) = class.find_field("message") {
+                    let slot = field.slot;
+                    let str_ref = self.heap_mut().allocate_string(msg.to_string());
+                    if let Ok(obj) = self.heap_mut().get_object_mut(obj_ref) {
+                        obj.fields[slot] = Value::Reference(Some(str_ref));
+                    }
+                }
+            }
+        }
+
+        RuntimeError::Thrown(obj_ref)
+    }
+
+    pub fn describe_exception(&self, obj_ref: ObjectRef) -> String {
+        let Ok(obj) = self.heap().get_object(obj_ref) else {
+            return format!("<non-Throwable object {:?}>", obj_ref);
+        };
+        let class_name = self
+            .get_class(obj.class)
+            .map(|c| c.name.clone())
+            .unwrap_or_default();
+        let message = obj.fields.first().and_then(|v| match v {
+            Value::Reference(Some(r)) => self.heap().get_string(*r).ok().map(|s| s.to_string()),
+            _ => None,
+        });
+        match message {
+            Some(m) => format!("{}: {}", class_name.replace('/', "."), m),
+            None => class_name.replace('/', "."),
+        }
     }
 }

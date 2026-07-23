@@ -1,8 +1,11 @@
 use std::rc::Rc;
 
-use crate::vm::{
-    runtime_class::ClassRef,
-    value::{ObjectRef, Value},
+use crate::{
+    error::RuntimeError,
+    vm::{
+        runtime_class::ClassRef,
+        value::{ObjectRef, Value},
+    },
 };
 
 #[allow(dead_code)]
@@ -122,14 +125,18 @@ impl Heap {
     pub fn get_array(&self, r: ObjectRef) -> Result<&ArrayObject, crate::error::RuntimeError> {
         match &self.entries[r.0] {
             HeapEntry::Array(a) => Ok(a),
-            _ => Err(crate::error::RuntimeError::InvalidType),
+            _ => Err(RuntimeError::Internal(
+                crate::error::InternalError::InvalidType,
+            )),
         }
     }
 
     pub fn get_object(&self, r: ObjectRef) -> Result<&Object, crate::error::RuntimeError> {
         match &self.entries[r.0] {
             HeapEntry::Object(o) => Ok(o),
-            _ => Err(crate::error::RuntimeError::InvalidType),
+            _ => Err(RuntimeError::Internal(
+                crate::error::InternalError::InvalidType,
+            )),
         }
     }
 
@@ -139,7 +146,9 @@ impl Heap {
     ) -> Result<&mut ArrayObject, crate::error::RuntimeError> {
         match &mut self.entries[r.0] {
             HeapEntry::Array(a) => Ok(a),
-            _ => Err(crate::error::RuntimeError::InvalidType),
+            _ => Err(RuntimeError::Internal(
+                crate::error::InternalError::InvalidType,
+            )),
         }
     }
 
@@ -149,14 +158,18 @@ impl Heap {
     ) -> Result<&mut Object, crate::error::RuntimeError> {
         match &mut self.entries[r.0] {
             HeapEntry::Object(o) => Ok(o),
-            _ => Err(crate::error::RuntimeError::InvalidType),
+            _ => Err(RuntimeError::Internal(
+                crate::error::InternalError::InvalidType,
+            )),
         }
     }
 
     pub fn get_string(&self, r: ObjectRef) -> Result<&str, crate::error::RuntimeError> {
         match &self.entries[r.0] {
             HeapEntry::Str(s) => Ok(s),
-            _ => Err(crate::error::RuntimeError::InvalidType),
+            _ => Err(RuntimeError::Internal(
+                crate::error::InternalError::InvalidType,
+            )),
         }
     }
 }

@@ -1,4 +1,7 @@
-use crate::{class::reader::ClassReader, error::RuntimeError};
+use crate::{
+    class::reader::ClassReader,
+    error::{InternalError, RuntimeError},
+};
 use simd_cesu8::mutf8;
 use std::error::Error;
 
@@ -127,7 +130,9 @@ impl ConstantPool {
     pub fn get_utf8(&self, index: u16) -> Result<String, RuntimeError> {
         match self.entries.get(index as usize) {
             Some(ConstantPoolEntry::Utf8(s)) => Ok(s.clone()),
-            _ => Err(RuntimeError::InvalidConstantPoolEntry),
+            _ => Err(RuntimeError::Internal(
+                InternalError::InvalidConstantPoolEntry,
+            )),
         }
     }
 
@@ -135,11 +140,15 @@ impl ConstantPool {
         let entry = self
             .entries
             .get(index as usize)
-            .ok_or(RuntimeError::InvalidConstantPoolEntry)?;
+            .ok_or(RuntimeError::Internal(
+                InternalError::InvalidConstantPoolEntry,
+            ))?;
 
         match entry {
             ConstantPoolEntry::Class { name_index } => self.get_utf8(*name_index),
-            _ => Err(RuntimeError::InvalidConstantPoolEntry),
+            _ => Err(RuntimeError::Internal(
+                InternalError::InvalidConstantPoolEntry,
+            )),
         }
     }
 
@@ -152,7 +161,9 @@ impl ConstantPool {
                 self.get_utf8(*name_index)?,
                 self.get_utf8(*descriptor_index)?,
             )),
-            _ => Err(RuntimeError::InvalidConstantPoolEntry),
+            _ => Err(RuntimeError::Internal(
+                InternalError::InvalidConstantPoolEntry,
+            )),
         }
     }
 
@@ -166,7 +177,9 @@ impl ConstantPool {
                 let (name, descriptor) = self.get_name_and_type(*name_and_type_index)?;
                 Ok((class_name, name, descriptor))
             }
-            _ => Err(RuntimeError::InvalidConstantPoolEntry),
+            _ => Err(RuntimeError::Internal(
+                InternalError::InvalidConstantPoolEntry,
+            )),
         }
     }
 
@@ -180,7 +193,9 @@ impl ConstantPool {
                 let (name, descriptor) = self.get_name_and_type(*name_and_type_index)?;
                 Ok((class_name, name, descriptor))
             }
-            _ => Err(RuntimeError::InvalidConstantPoolEntry),
+            _ => Err(RuntimeError::Internal(
+                InternalError::InvalidConstantPoolEntry,
+            )),
         }
     }
 
