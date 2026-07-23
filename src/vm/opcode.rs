@@ -40,6 +40,7 @@ pub enum Opcode {
     IfICmpLe = 0xa4,
 
     IReturn = 0xac,
+    Return = 0xb1,
 
     InvokeSpecial = 0xb7,
     InvokeStatic = 0xb8,
@@ -82,14 +83,15 @@ impl TryFrom<u8> for Opcode {
             0x64 => Ok(Self::ISub),
             0x68 => Ok(Self::IMul),
 
-            0xac => Ok(Self::IReturn),
-
             0x9f => Ok(Self::IfICmpEq),
             0xa0 => Ok(Self::IfICmpNe),
             0xa1 => Ok(Self::IfICmpLt),
             0xa2 => Ok(Self::IfICmpGe),
             0xa3 => Ok(Self::IfICmpGt),
             0xa4 => Ok(Self::IfICmpLe),
+
+            0xac => Ok(Self::IReturn),
+            0xb1 => Ok(Self::Return),
 
             0xb7 => Ok(Self::InvokeSpecial),
             0xb8 => Ok(Self::InvokeStatic),

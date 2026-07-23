@@ -155,6 +155,13 @@ impl Interpreter {
                     }
                 }
 
+                Opcode::Return => {
+                    vm.get_thread(thread_ref)?.pop_frame();
+                    if vm.get_thread(thread_ref)?.current_frame().is_none() {
+                        return Ok(Value::Empty);
+                    }
+                }
+
                 Opcode::IfICmpEq => {
                     let opcode_pc = frame.pc - 1;
                     let branchbyte1 = code[frame.pc];
