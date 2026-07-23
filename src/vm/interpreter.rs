@@ -33,9 +33,7 @@ impl Interpreter {
                 }
 
                 _ => {
-                    return Err(RuntimeError::InvalidOpcode {
-                        opcode: opcode as usize,
-                    });
+                    return Err(RuntimeError::InvalidOpcode { opcode: opcode });
                 }
             }
         }

@@ -14,10 +14,10 @@ pub enum RuntimeError {
     #[error("Invalid constant pool entry")]
     InvalidConstantPoolEntry,
 
-    #[error("Invalid opcode {opcode}")]
-    InvalidOpcode { opcode: usize },
+    #[error("Invalid opcode {opcode:#04x}")]
+    InvalidOpcode { opcode: u8 },
 
-    #[error("No thread frame given")]
+    #[error("No thread frame given on thread {thread_id}")]
     NoCurrentFrame { thread_id: usize },
 
     // TODO: also pass class name and method name
