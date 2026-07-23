@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::vm::value::ObjectRef;
+
 #[derive(Debug, Error)]
 pub enum RuntimeError {
     #[error("Method {method} not found in class {class}")]
@@ -41,4 +43,10 @@ pub enum RuntimeError {
 
     #[error("Invalid array type {atype}")]
     InvalidArrayType { atype: u8 },
+
+    #[error("Index {index} out of bounds for array {array:?}")]
+    ArrayIndexOutOfBoundsException { index: usize, array: ObjectRef },
+
+    #[error("Reference {reference:?} is null")]
+    NullPointerException { reference: ObjectRef },
 }

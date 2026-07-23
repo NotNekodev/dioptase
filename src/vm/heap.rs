@@ -4,6 +4,7 @@ use crate::vm::{
 };
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct Object {
     pub class: ClassRef,
     pub fields: Vec<Value>,
@@ -48,17 +49,20 @@ impl TryFrom<u8> for ArrayElementType {
 }
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct ArrayObject {
     pub element_type: ArrayElementType,
     pub elements: Vec<Value>,
 }
 
+#[derive(Debug)]
 pub enum HeapEntry {
     Object(Object),
     Array(ArrayObject),
 }
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct Heap {
     entries: Vec<HeapEntry>,
 }

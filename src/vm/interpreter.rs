@@ -3,7 +3,11 @@ use std::rc::Rc;
 use crate::{
     error::RuntimeError,
     vm::{
-        frame::Frame, heap::ArrayElementType, opcode::Opcode, thread::ThreadRef, value::Value,
+        frame::Frame,
+        heap::ArrayElementType,
+        opcode::Opcode,
+        thread::ThreadRef,
+        value::{ObjectRef, Value},
         vm::VM,
     },
 };
@@ -781,6 +785,45 @@ impl Interpreter {
                         "Created array with type {:?}, size {} -> {:?}",
                         array_type, length, array_ref
                     );
+                }
+
+                Opcode::IAStore => {
+                    let value = match frame.operand_stack.pop() {
+                        Some(Value::Int(n)) => n as i32,
+                        _ => return Err(RuntimeError::InvalidType),
+                    };
+
+                    let index = match frame.operand_stack.pop() {
+                        Some(Value::Int(n)) => n as usize,
+                        _ => return Err(RuntimeError::InvalidType),
+                    };
+
+                    let arrayref = match frame.operand_stack.pop() {
+                        Some(Value::Reference(aref)) => aref,
+                        _ => return Err(RuntimeError::InvalidType),
+                    };
+
+                    let reference = match arrayref {
+                        Some(value) => value,
+                        None => {
+                            return Err(RuntimeError::NullPointerException {
+                                reference: ObjectRef(0),
+                            });
+                        }
+                    };
+
+                    let array = vm.heap_mut().get_array_mut(reference)?;
+                    match array.elements.get(index) {
+                        Some(_) => {}
+                        None => {
+                            return Err(RuntimeError::ArrayIndexOutOfBoundsException {
+                                index: index,
+                                array: reference,
+                            });
+                        }
+                    };
+
+                    array.elements[index] = Value::Int(value);
                 }
             }
         }

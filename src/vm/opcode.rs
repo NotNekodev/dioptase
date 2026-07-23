@@ -28,6 +28,8 @@ pub enum Opcode {
     AStore2 = 0x4d,
     AStore3 = 0x4e,
 
+    IAStore = 0x4f,
+
     Pop = 0x57,
     Dup = 0x59,
 
@@ -109,6 +111,7 @@ impl TryFrom<u8> for Opcode {
             0x4c => Ok(Self::AStore1),
             0x4d => Ok(Self::AStore2),
             0x4e => Ok(Self::AStore3),
+            0x4f => Ok(Self::IAStore),
 
             0x57 => Ok(Self::Pop),
             0x59 => Ok(Self::Dup),
