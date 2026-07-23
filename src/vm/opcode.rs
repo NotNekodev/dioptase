@@ -39,6 +39,13 @@ pub enum Opcode {
     IStore2 = 0x3d,
     IStore3 = 0x3e,
 
+    IfEq = 0x99,
+    IfNe = 0x9a,
+    IfLt = 0x9b,
+    IfGe = 0x9c,
+    IfGt = 0x9d,
+    IfLe = 0x9e,
+
     IfICmpEq = 0x9f,
     IfICmpNe = 0xa0,
     IfICmpLt = 0xa1,
@@ -100,6 +107,13 @@ impl TryFrom<u8> for Opcode {
             0x68 => Ok(Self::IMul),
 
             0x84 => Ok(Self::IInc),
+
+            0x99 => Ok(Self::IfEq),
+            0x9a => Ok(Self::IfNe),
+            0x9b => Ok(Self::IfLt),
+            0x9c => Ok(Self::IfGe),
+            0x9d => Ok(Self::IfGt),
+            0x9e => Ok(Self::IfLe),
 
             0x9f => Ok(Self::IfICmpEq),
             0xa0 => Ok(Self::IfICmpNe),

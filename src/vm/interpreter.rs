@@ -555,6 +555,144 @@ impl Interpreter {
 
                     frame.pc = (opcode_pc as isize + offset as isize) as usize;
                 }
+
+                Opcode::IfEq => {
+                    let opcode_pc = frame.pc - 1;
+                    let branchbyte1 = code[frame.pc];
+                    frame.pc += 1;
+                    let branchbyte2 = code[frame.pc];
+                    frame.pc += 1;
+                    let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
+
+                    let value = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+
+                    match value {
+                        Value::Int(val) => {
+                            if val == 0 {
+                                frame.pc = branch_ip as usize + opcode_pc
+                            }
+                        }
+                        _ => return Err(RuntimeError::InvalidType),
+                    }
+                }
+
+                Opcode::IfNe => {
+                    let opcode_pc = frame.pc - 1;
+                    let branchbyte1 = code[frame.pc];
+                    frame.pc += 1;
+                    let branchbyte2 = code[frame.pc];
+                    frame.pc += 1;
+                    let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
+
+                    let value = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+
+                    match value {
+                        Value::Int(val) => {
+                            if val != 0 {
+                                frame.pc = branch_ip as usize + opcode_pc
+                            }
+                        }
+                        _ => return Err(RuntimeError::InvalidType),
+                    }
+                }
+
+                Opcode::IfLt => {
+                    let opcode_pc = frame.pc - 1;
+                    let branchbyte1 = code[frame.pc];
+                    frame.pc += 1;
+                    let branchbyte2 = code[frame.pc];
+                    frame.pc += 1;
+                    let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
+
+                    let value = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+
+                    match value {
+                        Value::Int(val) => {
+                            if val < 0 {
+                                frame.pc = branch_ip as usize + opcode_pc
+                            }
+                        }
+                        _ => return Err(RuntimeError::InvalidType),
+                    }
+                }
+
+                Opcode::IfLe => {
+                    let opcode_pc = frame.pc - 1;
+                    let branchbyte1 = code[frame.pc];
+                    frame.pc += 1;
+                    let branchbyte2 = code[frame.pc];
+                    frame.pc += 1;
+                    let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
+
+                    let value = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+
+                    match value {
+                        Value::Int(val) => {
+                            if val <= 0 {
+                                frame.pc = branch_ip as usize + opcode_pc
+                            }
+                        }
+                        _ => return Err(RuntimeError::InvalidType),
+                    }
+                }
+
+                Opcode::IfGt => {
+                    let opcode_pc = frame.pc - 1;
+                    let branchbyte1 = code[frame.pc];
+                    frame.pc += 1;
+                    let branchbyte2 = code[frame.pc];
+                    frame.pc += 1;
+                    let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
+
+                    let value = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+
+                    match value {
+                        Value::Int(val) => {
+                            if val > 0 {
+                                frame.pc = branch_ip as usize + opcode_pc
+                            }
+                        }
+                        _ => return Err(RuntimeError::InvalidType),
+                    }
+                }
+
+                Opcode::IfGe => {
+                    let opcode_pc = frame.pc - 1;
+                    let branchbyte1 = code[frame.pc];
+                    frame.pc += 1;
+                    let branchbyte2 = code[frame.pc];
+                    frame.pc += 1;
+                    let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
+
+                    let value = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+
+                    match value {
+                        Value::Int(val) => {
+                            if val >= 0 {
+                                frame.pc = branch_ip as usize + opcode_pc
+                            }
+                        }
+                        _ => return Err(RuntimeError::InvalidType),
+                    }
+                }
             }
         }
     }
