@@ -1,5 +1,6 @@
 use crate::{
     class::{
+        attributes::Attribute,
         constant_pool::ConstantPool,
         method::{MethodAccessFlags, MethodInfo},
     },
@@ -27,8 +28,36 @@ impl RuntimeMethod {
         constant_pool: &ConstantPool,
     ) -> Result<Self, RuntimeError> {
         let method_str: String = constant_pool.get_utf8(method.name_index)?;
-
         let descriptor: String = constant_pool.get_utf8(method.descriptor_index)?;
+
+        let mut max_stack = 0;
+        let mut max_locals = 0;
+        let mut code: Vec<u8> = Vec::new();
+
+        let mut found_code_attribute = false;
+
+        for attribute in &method.attributes {
+            if let Attribute::Code {
+                max_stack: stack,
+                max_locals: locals,
+                code: bytecode,
+                ..
+            } = attribute
+            {
+                max_stack = *stack as usize;
+                max_locals = *locals as usize;
+                code = bytecode.clone();
+                found_code_attribute = true;
+            }
+        }
+
+        if !found_code_attribute {
+            if !method.access_flags.contains(MethodAccessFlags::ABSTRACT) {
+                return Err(RuntimeError::NoCodeInMethod {
+                    method: method_str.clone(),
+                });
+            }
+        }
 
         Ok(Self {
             name: method_str,
@@ -36,10 +65,10 @@ impl RuntimeMethod {
             class,
             access: method.access_flags,
 
-            max_stack: 0,
-            max_locals: 0,
+            max_stack: max_stack,
+            max_locals: max_locals,
 
-            code: Vec::new(),
+            code: code,
         })
     }
 }
