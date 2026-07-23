@@ -2,26 +2,26 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum RuntimeError {
-    #[error("Method at index {index} not found in class {class}")]
-    MethodNotFound { class: String, index: usize },
+    #[error("Method {method} not found in class {class}")]
+    MethodNotFound { class: String, method: String },
 
     #[error("Method {method} does not contain any code but isnt abstract")]
     NoCodeInMethod { method: String },
 
-    #[error("Class at index {index} not found")]
-    ClassNotFound { index: usize },
+    #[error("Class {class} not found")]
+    ClassNotFound { class: String },
 
     #[error("Invalid constant pool entry")]
     InvalidConstantPoolEntry,
 
-    #[error("Invalid opcode {opcode:#04x}")]
-    InvalidOpcode { opcode: u8 },
+    #[error("Invalid opcode {opcode:#04x} @ pc {pc:#x}")]
+    InvalidOpcode { opcode: u8, pc: usize },
 
     #[error("No thread frame given on thread {thread_id}")]
     NoCurrentFrame { thread_id: usize },
 
     // TODO: also pass class name and method name
-    #[error("Operand stack underflow in [class].[method] at pc {pc}")]
+    #[error("Operand stack underflow in [class].[method] at pc {pc:#x}")]
     OperandStackUnderflow { pc: usize },
 
     #[error("Thread with id {thread_id} not found")]

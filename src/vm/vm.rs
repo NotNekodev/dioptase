@@ -39,7 +39,7 @@ impl VM {
             Some(class) => return Ok(class),
             None => {
                 return Err(RuntimeError::ClassNotFound {
-                    index: class_index.0,
+                    class: format!("(index {}", class_index.0),
                 });
             }
         }
@@ -54,7 +54,7 @@ impl VM {
             .classes
             .get(class_index.0)
             .ok_or_else(|| RuntimeError::ClassNotFound {
-                index: class_index.0,
+                class: format!("(index {}", class_index.0),
             })?;
 
         let method =
@@ -63,7 +63,7 @@ impl VM {
                 .get(method_index)
                 .ok_or_else(|| RuntimeError::MethodNotFound {
                     class: class.name.clone(),
-                    index: method_index,
+                    method: format!("(index {}", method_index),
                 })?;
 
         Ok(method)
@@ -135,8 +135,8 @@ impl VM {
         }
 
         let class_ref = main_class.ok_or(RuntimeError::MethodNotFound {
-            class: "main".into(),
-            index: 0,
+            class: "(main_class)".to_string(),
+            method: "main".to_string(),
         })?;
 
         let method_idx = main_method_idx.unwrap();

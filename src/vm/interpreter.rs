@@ -36,8 +36,10 @@ impl Interpreter {
             let op = code[frame.pc];
             frame.pc += 1;
 
-            let opcode =
-                Opcode::try_from(op).map_err(|_| RuntimeError::InvalidOpcode { opcode: op })?;
+            let opcode = Opcode::try_from(op).map_err(|_| RuntimeError::InvalidOpcode {
+                opcode: op,
+                pc: frame.pc - 1,
+            })?;
 
             match opcode {
                 Opcode::Bipush => {
@@ -109,16 +111,18 @@ impl Interpreter {
                         target_class_name, method_name, descriptor
                     );
 
-                    let target_class_ref = classes_by_name
-                        .get(&target_class_name)
-                        .ok_or(RuntimeError::ClassNotFound { index: 0 })?;
+                    let target_class_ref = classes_by_name.get(&target_class_name).ok_or(
+                        RuntimeError::ClassNotFound {
+                            class: target_class_name.clone(),
+                        },
+                    )?;
                     let target_class = &classes[target_class_ref.0];
 
                     let target_method_idx = target_class
                         .find_method(method_name.as_str(), descriptor.as_str())
                         .ok_or(RuntimeError::MethodNotFound {
                             class: target_class.name.clone(),
-                            index: 0,
+                            method: method_name.clone(),
                         })?;
                     let target_method = &target_class.methods[target_method_idx];
 
