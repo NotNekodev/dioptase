@@ -50,11 +50,8 @@ impl Interpreter {
                 Opcode::IConst3 => frame.operand_stack.push(Value::Int(3)),
                 Opcode::IConst5 => frame.operand_stack.push(Value::Int(5)),
 
-                Opcode::ILoad1 => {
-                    let value = frame.locals[1].clone();
-
-                    frame.operand_stack.push(value);
-                }
+                Opcode::ILoad0 => frame.operand_stack.push(frame.locals[0].clone()),
+                Opcode::ILoad1 => frame.operand_stack.push(frame.locals[1].clone()),
 
                 Opcode::IStore1 => {
                     let value = frame
@@ -63,6 +60,24 @@ impl Interpreter {
                         .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
 
                     frame.locals[1] = value;
+                }
+
+                Opcode::IAdd => {
+                    let value1 = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+                    let value2 = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+
+                    match (value1, value2) {
+                        (Value::Int(x), Value::Int(y)) => {
+                            frame.operand_stack.push(Value::Int(x.wrapping_add(y)));
+                        }
+                        _ => return Err(RuntimeError::InvalidType),
+                    }
                 }
 
                 Opcode::IReturn => {
