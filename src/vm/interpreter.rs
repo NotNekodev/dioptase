@@ -46,6 +46,9 @@ impl Interpreter {
                     frame.operand_stack.push(Value::Int(value as i32));
                 }
 
+                Opcode::IConst3 => frame.operand_stack.push(Value::Int(3)),
+                Opcode::IConst5 => frame.operand_stack.push(Value::Int(5)),
+
                 Opcode::ILoad1 => {
                     let value = frame.locals[1].clone();
 

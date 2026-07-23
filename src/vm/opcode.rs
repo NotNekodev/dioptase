@@ -4,6 +4,9 @@
 pub enum Opcode {
     Bipush = 0x10,
 
+    IConst3 = 0x06,
+    IConst5 = 0x08,
+
     ILoad1 = 0x1b,
 
     IStore1 = 0x3c,
@@ -17,6 +20,9 @@ impl TryFrom<u8> for Opcode {
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0x10 => Ok(Self::Bipush),
+
+            0x06 => Ok(Self::IConst3),
+            0x08 => Ok(Self::IConst5),
 
             0x1b => Ok(Self::ILoad1),
 
