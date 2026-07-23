@@ -36,6 +36,16 @@ impl Interpreter {
                     frame.operand_stack.push(Value::Int(value as i32));
                 }
 
+                Opcode::Sipush => {
+                    let byte1 = code[frame.pc];
+                    frame.pc += 1;
+                    let byte2 = code[frame.pc];
+                    frame.pc += 1;
+                    let value: i16 = i16::from_be_bytes([byte1, byte2]);
+
+                    frame.operand_stack.push(Value::Int(value as i32));
+                }
+
                 Opcode::IConst0 => frame.operand_stack.push(Value::Int(0)),
                 Opcode::IConst1 => frame.operand_stack.push(Value::Int(1)),
                 Opcode::IConst2 => frame.operand_stack.push(Value::Int(2)),
@@ -735,6 +745,13 @@ impl Interpreter {
                         },
                         _ => return Err(RuntimeError::InvalidType),
                     }
+                }
+
+                Opcode::Pop => {
+                    let _ = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
                 }
             }
         }

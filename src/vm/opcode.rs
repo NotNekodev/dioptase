@@ -4,6 +4,7 @@
 pub enum Opcode {
     AConstNull = 0x01,
     Bipush = 0x10,
+    Sipush = 0x11,
 
     IConst0 = 0x03,
     IConst1 = 0x04,
@@ -27,6 +28,7 @@ pub enum Opcode {
     AStore2 = 0x4d,
     AStore3 = 0x4e,
 
+    Pop = 0x57,
     Dup = 0x59,
 
     IAdd = 0x60,
@@ -78,6 +80,7 @@ impl TryFrom<u8> for Opcode {
             0x01 => Ok(Self::AConstNull),
 
             0x10 => Ok(Self::Bipush),
+            0x11 => Ok(Self::Sipush),
 
             0x03 => Ok(Self::IConst0),
             0x04 => Ok(Self::IConst1),
@@ -106,6 +109,7 @@ impl TryFrom<u8> for Opcode {
             0x4d => Ok(Self::AStore2),
             0x4e => Ok(Self::AStore3),
 
+            0x57 => Ok(Self::Pop),
             0x59 => Ok(Self::Dup),
 
             0x60 => Ok(Self::IAdd),
