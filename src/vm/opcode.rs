@@ -47,6 +47,9 @@ pub enum Opcode {
     IReturn = 0xac,
     Return = 0xb1,
 
+    GetField = 0xb4,
+    PutField = 0xb5,
+
     InvokeSpecial = 0xb7,
     InvokeStatic = 0xb8,
 
@@ -102,6 +105,9 @@ impl TryFrom<u8> for Opcode {
 
             0xac => Ok(Self::IReturn),
             0xb1 => Ok(Self::Return),
+
+            0xb4 => Ok(Self::GetField),
+            0xb5 => Ok(Self::PutField),
 
             0xb7 => Ok(Self::InvokeSpecial),
             0xb8 => Ok(Self::InvokeStatic),

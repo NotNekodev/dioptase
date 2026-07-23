@@ -349,6 +349,59 @@ impl Interpreter {
                     }
                 }
 
+                Opcode::GetField => {
+                    let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
+                    frame.pc += 2;
+
+                    let objectref = match frame.operand_stack.pop() {
+                        Some(Value::Reference(Some(r))) => r,
+                        _ => return Err(RuntimeError::InvalidType),
+                    };
+
+                    let (owner_name, field_name, _descriptor) = vm
+                        .get_class(frame_class)?
+                        .constant_pool
+                        .get_field_ref(index)?;
+                    let owner_ref = vm.resolve_class(&owner_name)?;
+                    let slot = vm
+                        .get_class(owner_ref)?
+                        .find_field(&field_name)
+                        .ok_or(RuntimeError::InvalidConstantPoolEntry)?
+                        .slot;
+
+                    let value = vm.heap().get(objectref).fields[slot].clone();
+
+                    let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                    frame.operand_stack.push(value);
+                }
+
+                Opcode::PutField => {
+                    let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
+                    frame.pc += 2;
+
+                    let value = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+                    let objectref = match frame.operand_stack.pop() {
+                        Some(Value::Reference(Some(r))) => r,
+                        _ => return Err(RuntimeError::InvalidType),
+                    };
+
+                    let (owner_name, field_name, _descriptor) = vm
+                        .get_class(frame_class)?
+                        .constant_pool
+                        .get_field_ref(index)?;
+                    let owner_ref = vm.resolve_class(&owner_name)?;
+                    let slot = vm
+                        .get_class(owner_ref)?
+                        .find_field(&field_name)
+                        .ok_or(RuntimeError::InvalidConstantPoolEntry)?
+                        .slot;
+
+                    vm.heap_mut().get_mut(objectref).fields[slot] = value;
+                }
+
                 Opcode::InvokeSpecial => {
                     let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
                     frame.pc += 2;
