@@ -2,7 +2,7 @@ use std::{env, error::Error, path::PathBuf, process::Command};
 
 const TEST_CP: &str = "./tests/test_cp";
 
-const FIXTURES: [TestFixture; 13] = [
+const FIXTURES: [TestFixture; 14] = [
     TestFixture {
         source_path: "add_test/AddTest.java",
         entry_class: "AddTest",
@@ -80,6 +80,12 @@ const FIXTURES: [TestFixture; 13] = [
         entry_class: "ArrayBasicTest",
         class_path: "array_basic_test",
         expected_return: 35,
+    },
+    TestFixture {
+        source_path: "array_loop_test/ArrayLoopTest.java",
+        entry_class: "ArrayLoopTest",
+        class_path: "array_loop_test",
+        expected_return: 90,
     },
 ];
 
