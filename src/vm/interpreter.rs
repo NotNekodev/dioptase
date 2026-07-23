@@ -346,6 +346,22 @@ impl Interpreter {
                     }
                     vm.get_thread(thread_ref)?.push_frame(new_frame);
                 }
+
+                Opcode::New => {
+                    let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
+                    frame.pc += 2;
+
+                    let class_name = vm
+                        .get_class(frame_class)?
+                        .constant_pool
+                        .get_class_name(index)?;
+                    let target_class_ref = vm.resolve_class(&class_name)?;
+                    let slot_count = vm.get_class(target_class_ref)?.instance_slot_count();
+                    let obj_ref = vm.heap_mut().allocate(target_class_ref, slot_count);
+
+                    let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                    frame.operand_stack.push(Value::Reference(Some(obj_ref)));
+                }
             }
         }
     }

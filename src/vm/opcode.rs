@@ -35,6 +35,8 @@ pub enum Opcode {
     IReturn = 0xac,
 
     InvokeStatic = 0xb8,
+
+    New = 0xbb,
 }
 
 impl TryFrom<u8> for Opcode {
@@ -75,6 +77,8 @@ impl TryFrom<u8> for Opcode {
             0xa4 => Ok(Self::IfICmpLe),
 
             0xb8 => Ok(Self::InvokeStatic),
+
+            0xbb => Ok(Self::New),
 
             _ => Err(()),
         }
