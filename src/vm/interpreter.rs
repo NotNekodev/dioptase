@@ -379,7 +379,7 @@ impl Interpreter {
                         .ok_or(RuntimeError::InvalidConstantPoolEntry)?
                         .slot;
 
-                    let value = vm.heap().get(objectref).fields[slot].clone();
+                    let value = vm.heap().get_object(objectref)?.fields[slot].clone();
 
                     let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                     frame.operand_stack.push(value);
@@ -409,7 +409,7 @@ impl Interpreter {
                         .ok_or(RuntimeError::InvalidConstantPoolEntry)?
                         .slot;
 
-                    vm.heap_mut().get_mut(objectref).fields[slot] = value;
+                    vm.heap_mut().get_object_mut(objectref)?.fields[slot] = value;
                 }
 
                 Opcode::InvokeSpecial => {
@@ -520,7 +520,7 @@ impl Interpreter {
                         .get_class_name(index)?;
                     let target_class_ref = vm.resolve_class(&class_name)?;
                     let slot_count = vm.get_class(target_class_ref)?.instance_slot_count();
-                    let obj_ref = vm.heap_mut().allocate(target_class_ref, slot_count);
+                    let obj_ref = vm.heap_mut().allocate_object(target_class_ref, slot_count);
 
                     let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                     frame.operand_stack.push(Value::Reference(Some(obj_ref)));
