@@ -9,7 +9,7 @@ pub struct Object {
     pub fields: Vec<Value>,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 #[allow(dead_code)]
 pub enum ArrayElementType {
@@ -25,6 +25,26 @@ pub enum ArrayElementType {
 
     // anewarray
     Reference = 100,
+}
+
+impl TryFrom<u8> for ArrayElementType {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            4 => Ok(ArrayElementType::Boolean),
+            5 => Ok(ArrayElementType::Char),
+            6 => Ok(ArrayElementType::Float),
+            7 => Ok(ArrayElementType::Double),
+            8 => Ok(ArrayElementType::Byte),
+            9 => Ok(ArrayElementType::Short),
+            10 => Ok(ArrayElementType::Int),
+            11 => Ok(ArrayElementType::Long),
+
+            100 => Ok(ArrayElementType::Reference),
+            _ => Err(()),
+        }
+    }
 }
 
 #[allow(dead_code)]

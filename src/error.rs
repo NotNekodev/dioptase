@@ -35,4 +35,10 @@ pub enum RuntimeError {
 
     #[error("Local variable at index {index} not found")]
     NoLocalVar { index: usize },
+
+    #[error("Tried to create an array with a negative size")]
+    NegativeArraySizeException,
+
+    #[error("Invalid array type {atype}")]
+    InvalidArrayType { atype: u8 },
 }

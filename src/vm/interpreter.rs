@@ -2,7 +2,10 @@ use std::rc::Rc;
 
 use crate::{
     error::RuntimeError,
-    vm::{frame::Frame, opcode::Opcode, thread::ThreadRef, value::Value, vm::VM},
+    vm::{
+        frame::Frame, heap::ArrayElementType, opcode::Opcode, thread::ThreadRef, value::Value,
+        vm::VM,
+    },
 };
 
 pub struct Interpreter;
@@ -752,6 +755,32 @@ impl Interpreter {
                         .operand_stack
                         .pop()
                         .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+                }
+
+                Opcode::NewArray => {
+                    let atype = code[frame.pc];
+                    frame.pc += 1;
+
+                    let length = match frame.operand_stack.pop() {
+                        Some(Value::Int(n)) if n >= 0 => n as usize,
+                        Some(Value::Int(_)) => {
+                            return Err(RuntimeError::NegativeArraySizeException);
+                        }
+                        _ => return Err(RuntimeError::InvalidType),
+                    };
+
+                    let array_type = ArrayElementType::try_from(atype)
+                        .map_err(|_| RuntimeError::InvalidArrayType { atype })?;
+
+                    let array_ref = vm.heap_mut().allocate_array(array_type, length);
+
+                    let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                    frame.operand_stack.push(Value::Reference(Some(array_ref)));
+
+                    println!(
+                        "Created array with type {:?}, size {} -> {:?}",
+                        array_type, length, array_ref
+                    );
                 }
             }
         }
