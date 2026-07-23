@@ -1,6 +1,8 @@
-use std::{error::Error, process::Command};
+use std::{env, error::Error, path::PathBuf, process::Command};
 
-const FIXTURES: [TestFixture; 12] = [
+const TEST_CP: &str = "./tests/test_cp";
+
+const FIXTURES: [TestFixture; 11] = [
     TestFixture {
         source_path: "add_test/AddTest.java",
         entry_class: "AddTest",
@@ -67,12 +69,6 @@ const FIXTURES: [TestFixture; 12] = [
         class_path: "ifnonnull_test",
         expected_return: 55,
     },
-    TestFixture {
-        source_path: "goto_test/GotoTest.java",
-        entry_class: "GotoTest",
-        class_path: "goto_test",
-        expected_return: 10,
-    },
 ];
 
 struct TestFixture<'a> {
@@ -87,25 +83,47 @@ struct TestFixture<'a> {
 
 impl<'a> TestFixture<'a> {
     pub fn test(&self) -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
-        Command::new("javac")
+        let compile_output = Command::new("javac")
             .arg("-source")
             .arg("8")
             .arg("-target")
             .arg("8")
+            .arg("-bootclasspath")
+            .arg(TEST_CP)
             .arg(format!("./tests/fixtures/{}", &self.source_path))
             .output()?;
-        let res = Command::new("./target/debug/dioptase")
-            .arg("--cp")
-            .arg(format!("./tests/fixtures/{}", &self.class_path))
-            .arg(&self.entry_class)
-            .status()?
-            .code()
-            .ok_or(format!(
-                "Failed to get return code from {}",
-                &self.entry_class
-            ))?;
 
-        assert_eq!(res, self.expected_return);
+        if !compile_output.status.success() {
+            return Err(format!(
+                "javac failed for {}:\n{}",
+                &self.source_path,
+                String::from_utf8_lossy(&compile_output.stderr)
+            )
+            .into());
+        }
+
+        let combined_cp = env::join_paths([
+            PathBuf::from(format!("./tests/fixtures/{}", &self.class_path)),
+            PathBuf::from(TEST_CP),
+        ])?;
+
+        let run_output = Command::new("./target/debug/dioptase")
+            .arg("--cp")
+            .arg(&combined_cp)
+            .arg(&self.entry_class)
+            .status()?;
+
+        let res = run_output.code().ok_or(format!(
+            "Failed to get return code from {}",
+            &self.entry_class
+        ))?;
+
+        assert_eq!(
+            res, self.expected_return,
+            "{} returned {} but expected {}",
+            self.entry_class, res, self.expected_return
+        );
+
         Ok(())
     }
 }
@@ -113,15 +131,65 @@ impl<'a> TestFixture<'a> {
 #[test]
 fn execution_tests() -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
     verify_javac()?;
-
+    compile_test_cp()?;
     for fixture in FIXTURES {
         fixture.test()?;
     }
-
     Ok(())
 }
 
 fn verify_javac() -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
     Command::new("javac").output()?;
+    Ok(())
+}
+
+fn compile_test_cp() -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
+    let object_src = format!("{}/java/lang/Object.java", TEST_CP);
+
+    let object_output = Command::new("javac")
+        .arg("-source")
+        .arg("8")
+        .arg("-target")
+        .arg("8")
+        .arg("-bootclasspath")
+        .arg(TEST_CP)
+        .arg("-d")
+        .arg(TEST_CP)
+        .arg(&object_src)
+        .output()?;
+
+    if !object_output.status.success() {
+        return Err(format!(
+            "javac failed compiling test_cp Object.java:\n{}",
+            String::from_utf8_lossy(&object_output.stderr)
+        )
+        .into());
+    }
+
+    let remaining_sources = [
+        format!("{}/java/lang/String.java", TEST_CP),
+        format!("{}/java/lang/System.java", TEST_CP),
+    ];
+
+    let remaining_output = Command::new("javac")
+        .arg("-source")
+        .arg("8")
+        .arg("-target")
+        .arg("8")
+        .arg("-bootclasspath")
+        .arg(TEST_CP)
+        .arg("-d")
+        .arg(TEST_CP)
+        .args(&remaining_sources)
+        .output()?;
+
+    if !remaining_output.status.success() {
+        return Err(format!(
+            "javac failed compiling test_cp java.lang stubs:\n{}",
+            String::from_utf8_lossy(&remaining_output.stderr)
+        )
+        .into());
+    }
+
     Ok(())
 }

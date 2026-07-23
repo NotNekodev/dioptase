@@ -54,14 +54,16 @@ impl ClassFile {
             None => panic!("this_class index out of bounds"),
         }
 
-        match class_file
-            .constant_pool
-            .entries
-            .get(class_file.super_class as usize)
-        {
-            Some(ConstantPoolEntry::Class { .. }) => {}
-            Some(_) => panic!("super_class does not point to a CONSTANT_Class entry"),
-            None => panic!("super_class index out of bounds"),
+        if class_file.super_class != 0 {
+            match class_file
+                .constant_pool
+                .entries
+                .get(class_file.super_class as usize)
+            {
+                Some(ConstantPoolEntry::Class { .. }) => {}
+                Some(_) => panic!("super_class does not point to a CONSTANT_Class entry"),
+                None => panic!("super_class index out of bounds"),
+            }
         }
 
         let interfaces_count = reader.read_u16()?;

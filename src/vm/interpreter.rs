@@ -411,60 +411,49 @@ impl Interpreter {
                         .constant_pool
                         .get_method_ref(index)?;
 
-                    if target_class_name == "java/lang/Object" && method_name == "<init>" {
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
-                        frame
-                            .operand_stack
-                            .pop()
-                            .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
-                        println!(
-                            "Special invokation on java.lang.Object#<init>, stopped, no JRE lib yet"
+                    let target_class_ref = vm.resolve_class(&target_class_name)?;
+
+                    let (target_method_idx, max_locals, max_stack, param_slots) = {
+                        let target_class = vm.get_class(target_class_ref)?;
+
+                        let idx = target_class.find_method(&method_name, &descriptor).ok_or(
+                            RuntimeError::MethodNotFound {
+                                class: target_class.name.clone(),
+                                method: method_name.clone(),
+                            },
+                        )?;
+
+                        let m = &target_class.methods[idx];
+                        (idx, m.max_locals, m.max_stack, m.param_slot_count())
+                    };
+
+                    let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                    let mut args = Vec::with_capacity(param_slots + 1);
+
+                    for _ in 0..param_slots {
+                        args.push(
+                            frame
+                                .operand_stack
+                                .pop()
+                                .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?,
                         );
-                    } else {
-                        let target_class_ref = vm.resolve_class(&target_class_name)?;
-
-                        let (target_method_idx, max_locals, max_stack, param_slots) = {
-                            let target_class = vm.get_class(target_class_ref)?;
-
-                            let idx = target_class.find_method(&method_name, &descriptor).ok_or(
-                                RuntimeError::MethodNotFound {
-                                    class: target_class.name.clone(),
-                                    method: method_name.clone(),
-                                },
-                            )?;
-
-                            let m = &target_class.methods[idx];
-                            (idx, m.max_locals, m.max_stack, m.param_slot_count())
-                        };
-
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
-                        let mut args = Vec::with_capacity(param_slots + 1);
-
-                        for _ in 0..param_slots {
-                            args.push(
-                                frame
-                                    .operand_stack
-                                    .pop()
-                                    .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?,
-                            );
-                        }
-
-                        let objectref = frame
-                            .operand_stack
-                            .pop()
-                            .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
-                        args.push(objectref);
-                        args.reverse();
-
-                        let mut new_frame =
-                            Frame::new(max_locals, max_stack, target_class_ref, target_method_idx);
-
-                        for (i, v) in args.into_iter().enumerate() {
-                            new_frame.locals[i] = v;
-                        }
-
-                        vm.get_thread(thread_ref)?.push_frame(new_frame);
                     }
+
+                    let objectref = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+                    args.push(objectref);
+                    args.reverse();
+
+                    let mut new_frame =
+                        Frame::new(max_locals, max_stack, target_class_ref, target_method_idx);
+
+                    for (i, v) in args.into_iter().enumerate() {
+                        new_frame.locals[i] = v;
+                    }
+
+                    vm.get_thread(thread_ref)?.push_frame(new_frame);
                 }
 
                 Opcode::InvokeStatic => {
