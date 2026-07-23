@@ -4,7 +4,11 @@
 pub enum Opcode {
     Bipush = 0x10,
 
+    IConst0 = 0x03,
+    IConst1 = 0x04,
+    IConst2 = 0x05,
     IConst3 = 0x06,
+    IConst4 = 0x07,
     IConst5 = 0x08,
 
     ILoad0 = 0x1a,
@@ -26,7 +30,11 @@ impl TryFrom<u8> for Opcode {
         match value {
             0x10 => Ok(Self::Bipush),
 
+            0x03 => Ok(Self::IConst0),
+            0x04 => Ok(Self::IConst1),
+            0x05 => Ok(Self::IConst2),
             0x06 => Ok(Self::IConst3),
+            0x07 => Ok(Self::IConst4),
             0x08 => Ok(Self::IConst5),
 
             0x1a => Ok(Self::ILoad0),

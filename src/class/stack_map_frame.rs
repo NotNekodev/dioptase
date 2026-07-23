@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use crate::{class::reader::ClassReader, error::RuntimeError};
+use crate::class::reader::ClassReader;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]

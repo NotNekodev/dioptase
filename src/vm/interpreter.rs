@@ -49,7 +49,11 @@ impl Interpreter {
                     frame.operand_stack.push(Value::Int(value as i32));
                 }
 
+                Opcode::IConst0 => frame.operand_stack.push(Value::Int(0)),
+                Opcode::IConst1 => frame.operand_stack.push(Value::Int(1)),
+                Opcode::IConst2 => frame.operand_stack.push(Value::Int(2)),
                 Opcode::IConst3 => frame.operand_stack.push(Value::Int(3)),
+                Opcode::IConst4 => frame.operand_stack.push(Value::Int(4)),
                 Opcode::IConst5 => frame.operand_stack.push(Value::Int(5)),
 
                 Opcode::ILoad0 => frame.operand_stack.push(frame.locals[0].clone()),
