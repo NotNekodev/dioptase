@@ -40,18 +40,9 @@ impl ClassFile {
 
         class_file.constant_pool = ConstantPool::read(reader)?;
 
-        println!(
-            "Constant pool size: {} entries",
-            class_file.constant_pool.entries.iter().count() - 1
-        );
-
         class_file.access_flags = reader.read_u16()?;
         class_file.this_class = reader.read_u16()?;
         class_file.super_class = reader.read_u16()?;
-
-        println!("Access flags: {:#X}", class_file.access_flags);
-        println!("this_class: {}", class_file.this_class);
-        println!("super_class: {}", class_file.super_class);
 
         match class_file
             .constant_pool
@@ -75,8 +66,6 @@ impl ClassFile {
 
         let interfaces_count = reader.read_u16()?;
 
-        println!("Class file contains {} interfaces", interfaces_count);
-
         for i in 0..interfaces_count {
             let idx = reader.read_u16()?;
 
@@ -90,7 +79,6 @@ impl ClassFile {
         }
 
         let fields_count = reader.read_u16()?;
-        println!("Class file contains {} fields", fields_count);
 
         for _ in 0..fields_count {
             class_file
@@ -99,7 +87,6 @@ impl ClassFile {
         }
 
         let methods_count = reader.read_u16()?;
-        println!("Class file contains {} methods", methods_count);
 
         for _ in 0..methods_count {
             class_file
@@ -108,7 +95,6 @@ impl ClassFile {
         }
 
         let attributes_count = reader.read_u16()?;
-        println!("Class file contains {} attributes", attributes_count);
 
         for _ in 0..attributes_count {
             class_file
