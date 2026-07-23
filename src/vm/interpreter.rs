@@ -697,6 +697,56 @@ impl Interpreter {
                 Opcode::AConstNull => {
                     frame.operand_stack.push(Value::Reference(None));
                 }
+
+                Opcode::IfNonNull => {
+                    let opcode_pc = frame.pc - 1;
+                    let branchbyte1 = code[frame.pc];
+                    frame.pc += 1;
+                    let branchbyte2 = code[frame.pc];
+                    frame.pc += 1;
+                    let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
+
+                    let reference_value = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+
+                    match reference_value {
+                        Value::Reference(reference) => match reference {
+                            Some(_) => {
+                                frame.pc = branch_ip as usize + opcode_pc;
+                            }
+
+                            None => {}
+                        },
+                        _ => return Err(RuntimeError::InvalidType),
+                    }
+                }
+
+                Opcode::IfNull => {
+                    let opcode_pc = frame.pc - 1;
+                    let branchbyte1 = code[frame.pc];
+                    frame.pc += 1;
+                    let branchbyte2 = code[frame.pc];
+                    frame.pc += 1;
+                    let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
+
+                    let reference_value = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+
+                    match reference_value {
+                        Value::Reference(reference) => match reference {
+                            Some(_) => {}
+
+                            None => {
+                                frame.pc = branch_ip as usize + opcode_pc;
+                            }
+                        },
+                        _ => return Err(RuntimeError::InvalidType),
+                    }
+                }
             }
         }
     }

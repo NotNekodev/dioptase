@@ -65,6 +65,9 @@ pub enum Opcode {
     InvokeStatic = 0xb8,
 
     New = 0xbb,
+
+    IfNull = 0xc6,
+    IfNonNull = 0xc7,
 }
 
 impl TryFrom<u8> for Opcode {
@@ -136,6 +139,9 @@ impl TryFrom<u8> for Opcode {
             0xb8 => Ok(Self::InvokeStatic),
 
             0xbb => Ok(Self::New),
+
+            0xc6 => Ok(Self::IfNull),
+            0xc7 => Ok(Self::IfNonNull),
 
             _ => Err(()),
         }
