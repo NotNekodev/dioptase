@@ -917,6 +917,58 @@ impl Interpreter {
                     let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                     frame.operand_stack.push(Value::Int(length as i32));
                 }
+
+                Opcode::AAStore => {
+                    let value = match frame.operand_stack.pop() {
+                        Some(Value::Reference(aref)) => Value::Reference(aref),
+                        _ => return Err(RuntimeError::InvalidType),
+                    };
+
+                    let index = match frame.operand_stack.pop() {
+                        Some(Value::Int(aref)) => aref,
+                        _ => return Err(RuntimeError::InvalidType),
+                    };
+
+                    let arrayref = match frame.operand_stack.pop() {
+                        Some(Value::Reference(aref)) => aref,
+                        _ => return Err(RuntimeError::InvalidType),
+                    };
+
+                    let reference = match arrayref {
+                        Some(value) => value,
+                        None => {
+                            return Err(RuntimeError::NullPointerException {
+                                reference: ObjectRef(0),
+                            });
+                        }
+                    };
+
+                    let component = {
+                        let array = vm.heap().get_array(reference)?;
+
+                        match array.element_type {
+                            ArrayElementType::Reference(component) => component,
+                            _ => return Err(RuntimeError::InvalidType),
+                        }
+                    };
+
+                    match value {
+                        Value::Reference(None) => {}
+
+                        Value::Reference(Some(obj)) => {
+                            let obj_class = vm.heap().get_object(obj)?.class;
+
+                            if !vm.is_assignable(obj_class, component)? {
+                                return Err(RuntimeError::ArrayStoreException);
+                            }
+                        }
+
+                        _ => return Err(RuntimeError::InvalidType),
+                    }
+
+                    let array = vm.heap_mut().get_array_mut(reference)?;
+                    array.elements[index as usize] = value;
+                }
             }
         }
     }

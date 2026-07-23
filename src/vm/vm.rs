@@ -186,4 +186,23 @@ impl VM {
     pub fn heap_mut(&mut self) -> &mut Heap {
         &mut self.heap
     }
+
+    // TODO: expand with interfaces
+    pub fn is_assignable(&self, from: ClassRef, to: ClassRef) -> Result<bool, RuntimeError> {
+        if from == to {
+            return Ok(true);
+        }
+
+        let mut current = Some(from);
+
+        while let Some(class) = current {
+            if class == to {
+                return Ok(true);
+            }
+
+            current = self.get_class(class)?.super_class;
+        }
+
+        Ok(false)
+    }
 }

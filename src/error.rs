@@ -49,4 +49,7 @@ pub enum RuntimeError {
 
     #[error("Reference {reference:?} is null")]
     NullPointerException { reference: ObjectRef },
+
+    #[error("ArrayStoreException")]
+    ArrayStoreException,
 }
