@@ -58,6 +58,8 @@ impl Interpreter {
 
                 Opcode::ILoad0 => frame.operand_stack.push(frame.locals[0].clone()),
                 Opcode::ILoad1 => frame.operand_stack.push(frame.locals[1].clone()),
+                Opcode::ILoad2 => frame.operand_stack.push(frame.locals[2].clone()),
+                Opcode::ILoad3 => frame.operand_stack.push(frame.locals[3].clone()),
 
                 Opcode::IStore1 => {
                     let value = frame
