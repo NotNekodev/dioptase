@@ -18,6 +18,13 @@ pub enum Opcode {
 
     IStore1 = 0x3c,
 
+    IfICmpEq = 0x9f,
+    IfICmpNe = 0xa0,
+    IfICmpLt = 0xa1,
+    IfICmpGe = 0xa2,
+    IfICmpGt = 0xa3,
+    IfICmpLe = 0xa4,
+
     IReturn = 0xac,
 
     InvokeStatic = 0xb8,
@@ -45,6 +52,13 @@ impl TryFrom<u8> for Opcode {
             0x60 => Ok(Self::IAdd),
 
             0xac => Ok(Self::IReturn),
+
+            0x9f => Ok(Self::IfICmpEq),
+            0xa0 => Ok(Self::IfICmpNe),
+            0xa1 => Ok(Self::IfICmpLt),
+            0xa2 => Ok(Self::IfICmpGe),
+            0xa3 => Ok(Self::IfICmpGt),
+            0xa4 => Ok(Self::IfICmpLe),
 
             0xb8 => Ok(Self::InvokeStatic),
 
