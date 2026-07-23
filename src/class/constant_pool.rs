@@ -29,6 +29,7 @@ pub enum ConstantPoolEntry {
     Unknown,
 }
 
+#[allow(dead_code)]
 impl ConstantPool {
     pub fn read(reader: &mut ClassReader) -> Result<Self, Box<dyn Error + Send + Sync + 'static>> {
         let count = reader.read_u16()?;
@@ -137,6 +138,20 @@ impl ConstantPool {
     pub fn get_method_ref(&self, index: u16) -> Result<(String, String, String), RuntimeError> {
         match self.entries.get(index as usize) {
             Some(ConstantPoolEntry::MethodRef {
+                class_index,
+                name_and_type_index,
+            }) => {
+                let class_name = self.get_class_name(*class_index)?;
+                let (name, descriptor) = self.get_name_and_type(*name_and_type_index)?;
+                Ok((class_name, name, descriptor))
+            }
+            _ => Err(RuntimeError::InvalidConstantPoolEntry),
+        }
+    }
+
+    pub fn get_field_ref(&self, index: u16) -> Result<(String, String, String), RuntimeError> {
+        match self.entries.get(index as usize) {
+            Some(ConstantPoolEntry::FieldRef {
                 class_index,
                 name_and_type_index,
             }) => {

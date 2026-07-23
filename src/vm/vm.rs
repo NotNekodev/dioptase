@@ -6,6 +6,7 @@ use crate::{
     vm::{
         classpath::ClassPath,
         frame::Frame,
+        heap::Heap,
         interpreter::Interpreter,
         runtime_class::{ClassRef, RuntimeClass},
         runtime_method::RuntimeMethod,
@@ -21,6 +22,7 @@ pub struct VM {
     threads: Vec<Thread>,
     main_thread: ThreadRef,
     classpath: ClassPath,
+    heap: Heap,
 }
 
 #[allow(dead_code)]
@@ -32,6 +34,7 @@ impl VM {
             main_thread: ThreadRef(0),
             classes_by_name: HashMap::new(),
             classpath: ClassPath::empty(),
+            heap: Heap::new(),
         }
     }
 
@@ -174,5 +177,13 @@ impl VM {
         self.get_thread(main_thread)?.push_frame(frame);
         let result = Interpreter::run(self, main_thread)?;
         Ok(result)
+    }
+
+    pub fn heap(&self) -> &Heap {
+        &self.heap
+    }
+
+    pub fn heap_mut(&mut self) -> &mut Heap {
+        &mut self.heap
     }
 }

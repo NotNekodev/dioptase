@@ -1,8 +1,10 @@
 pub mod classpath;
 pub mod frame;
+pub mod heap;
 pub mod interpreter;
 pub mod opcode;
 pub mod runtime_class;
+pub mod runtime_field;
 pub mod runtime_method;
 pub mod thread;
 pub mod value;

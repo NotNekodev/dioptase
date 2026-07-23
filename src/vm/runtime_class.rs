@@ -1,7 +1,7 @@
 use crate::{
     class::{class_file::ClassFile, constant_pool::ConstantPool},
     error::RuntimeError,
-    vm::runtime_method::RuntimeMethod,
+    vm::{runtime_field::RuntimeField, runtime_method::RuntimeMethod},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -13,6 +13,7 @@ pub struct RuntimeClass {
     pub super_class: Option<ClassRef>,
     pub methods: Vec<RuntimeMethod>,
     pub constant_pool: ConstantPool,
+    pub instance_fields: Vec<RuntimeField>,
 }
 
 #[allow(dead_code)]
@@ -25,6 +26,7 @@ impl RuntimeClass {
             constant_pool: ConstantPool {
                 entries: Vec::new(),
             },
+            instance_fields: Vec::new(),
         }
     }
 
@@ -40,6 +42,8 @@ impl RuntimeClass {
         let mut runtime_class = RuntimeClass::new(name, super_class);
 
         runtime_class.constant_pool = class_file.constant_pool.clone();
+        runtime_class.instance_fields =
+            RuntimeField::from_field_infos(&class_file.fields, &class_file.constant_pool)?;
 
         for (_, method) in class_file.methods.iter().enumerate() {
             runtime_class.methods.push(RuntimeMethod::from_method_info(
@@ -56,5 +60,22 @@ impl RuntimeClass {
         self.methods
             .iter()
             .position(|m| m.name == name && m.descriptor == descriptor)
+    }
+
+    pub fn find_field(&self, name: &str) -> Option<&RuntimeField> {
+        self.instance_fields.iter().find(|f| f.name == name)
+    }
+
+    pub fn instance_slot_count(&self) -> usize {
+        self.instance_fields
+            .iter()
+            .map(|f| {
+                if f.descriptor == "J" || f.descriptor == "D" {
+                    2
+                } else {
+                    1
+                }
+            })
+            .sum()
     }
 }
