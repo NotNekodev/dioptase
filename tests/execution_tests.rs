@@ -1,6 +1,6 @@
 use std::{error::Error, process::Command};
 
-const FIXTURES: [TestFixture; 6] = [
+const FIXTURES: [TestFixture; 12] = [
     TestFixture {
         source_path: "add_test/AddTest.java",
         entry_class: "AddTest",
@@ -30,6 +30,42 @@ const FIXTURES: [TestFixture; 6] = [
         entry_class: "HeapTest",
         class_path: "heap_test",
         expected_return: 42,
+    },
+    TestFixture {
+        source_path: "goto_test/GotoTest.java",
+        entry_class: "GotoTest",
+        class_path: "goto_test",
+        expected_return: 10,
+    },
+    TestFixture {
+        source_path: "ifeq_test/IfEqTest.java",
+        entry_class: "IfEqTest",
+        class_path: "ifeq_test",
+        expected_return: 42,
+    },
+    TestFixture {
+        source_path: "iflt_ifge_test/IfLtIfGeTest.java",
+        entry_class: "IfLtIfGeTest",
+        class_path: "iflt_ifge_test",
+        expected_return: 3,
+    },
+    TestFixture {
+        source_path: "ifne_test/IfNeTest.java",
+        entry_class: "IfNeTest",
+        class_path: "ifne_test",
+        expected_return: 100,
+    },
+    TestFixture {
+        source_path: "ifnull_test/IfNullTest.java",
+        entry_class: "IfNullTest",
+        class_path: "ifnull_test",
+        expected_return: 1,
+    },
+    TestFixture {
+        source_path: "ifnonnull_test/IfNonNullTest.java",
+        entry_class: "IfNonNullTest",
+        class_path: "ifnonnull_test",
+        expected_return: 55,
     },
     TestFixture {
         source_path: "goto_test/GotoTest.java",
