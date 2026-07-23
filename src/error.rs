@@ -13,4 +13,20 @@ pub enum RuntimeError {
 
     #[error("Invalid constant pool entry")]
     InvalidConstantPoolEntry,
+
+    #[error("Invalid opcode {opcode}")]
+    InvalidOpcode { opcode: usize },
+
+    #[error("No thread frame given")]
+    NoCurrentFrame { thread_id: usize },
+
+    // TODO: also pass class name and method name
+    #[error("Operand stack underflow in [class].[method] at pc {pc}")]
+    OperandStackUnderflow { pc: usize },
+
+    #[error("Thread with id {thread_id} not found")]
+    ThreadNotFound { thread_id: usize },
+
+    #[error("Invalid type")]
+    InvalidType,
 }

@@ -1,21 +1,33 @@
 use crate::{
     class::{class_file::ClassFile, reader::ClassReader},
     cli::Cli,
+    error::RuntimeError,
     vm::{
         runtime_class::{ClassRef, RuntimeClass},
+        value::Value,
         vm::VM,
     },
 };
 use anyhow::{Context, Result};
 use clap::Parser;
-use std::{env, error::Error, fs};
+use std::{env, error::Error, fs, process::ExitCode};
 
 mod class;
 mod cli;
 mod error;
 mod vm;
 
-fn main() -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
+fn main() -> ExitCode {
+    match real_main() {
+        Ok(code) => ExitCode::from(code as u8),
+        Err(err) => {
+            eprintln!("Error: {}", err);
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn real_main() -> Result<i32, Box<dyn Error + Send + Sync + 'static>> {
     let cli = Cli::parse();
 
     if cli.version {
@@ -23,7 +35,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
         println!("Version: {}", env!("CARGO_PKG_VERSION"));
         println!("Copyright (C) 2026 NotNekodev and contributors");
         println!("SPDX License Identifier: GPL-3.0-only");
-        return Ok(());
+        return Ok(0);
     }
 
     let data: Vec<u8> = fs::read(cli.class_file.context("No class file provided")?)
@@ -52,5 +64,10 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
         );
     }
 
-    Ok(())
+    let ret_value = vm.run_main()?;
+
+    match ret_value {
+        Value::Int(val) => Ok(val),
+        _ => return Err(Box::new(RuntimeError::InvalidType)),
+    }
 }

@@ -1,5 +1,7 @@
 pub mod frame;
+pub mod interpreter;
 pub mod runtime_class;
 pub mod runtime_method;
+pub mod thread;
 pub mod value;
 pub mod vm;
