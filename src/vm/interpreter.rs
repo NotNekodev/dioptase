@@ -969,6 +969,49 @@ impl Interpreter {
                     let array = vm.heap_mut().get_array_mut(reference)?;
                     array.elements[index as usize] = value;
                 }
+
+                Opcode::AALoad => {
+                    let index = match frame.operand_stack.pop() {
+                        Some(Value::Int(aref)) => aref,
+                        _ => return Err(RuntimeError::InvalidType),
+                    };
+
+                    let arrayref = match frame.operand_stack.pop() {
+                        Some(Value::Reference(aref)) => aref,
+                        _ => return Err(RuntimeError::InvalidType),
+                    };
+
+                    let reference = match arrayref {
+                        Some(value) => value,
+                        None => {
+                            return Err(RuntimeError::NullPointerException {
+                                reference: ObjectRef(0),
+                            });
+                        }
+                    };
+
+                    let value = {
+                        let array = vm.heap().get_array(reference)?;
+
+                        match array.elements.get(index as usize) {
+                            Some(v) => v.clone(),
+                            None => {
+                                return Err(RuntimeError::ArrayIndexOutOfBoundsException {
+                                    index: index as usize,
+                                    array: reference,
+                                });
+                            }
+                        }
+                    };
+
+                    println!(
+                        "Gettin reference array value for array {:?} at index {} -> {:?}",
+                        reference, index, value
+                    );
+
+                    let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                    frame.operand_stack.push(value);
+                }
             }
         }
     }

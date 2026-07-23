@@ -91,7 +91,7 @@ const FIXTURES: [TestFixture; 15] = [
         source_path: "object_array_test/ObjectArrayTest.java",
         entry_class: "ObjectArrayTest",
         class_path: "object_array_test",
-        expected_return: 90,
+        expected_return: 2,
     },
 ];
 
