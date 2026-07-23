@@ -45,16 +45,7 @@ impl Attribute {
 
         let _attribute_len = reader.read_u32()?;
 
-        let binding = class_file
-            .constant_pool
-            .get_utf8(attribute_name_idx)
-            .expect(
-                format!(
-                    "Attribute at index {} is not a CONSTANT_Utf8",
-                    attribute_name_idx
-                )
-                .as_str(),
-            );
+        let binding = class_file.constant_pool.get_utf8(attribute_name_idx)?;
         let attribute_name: &str = binding.as_str();
 
         match attribute_name {

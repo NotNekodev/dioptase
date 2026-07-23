@@ -1,4 +1,4 @@
-use crate::{class::class_file::ClassFile, vm::runtime_method::RuntimeMethod};
+use crate::{class::class_file::ClassFile, error::RuntimeError, vm::runtime_method::RuntimeMethod};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ClassRef(pub usize);
@@ -24,31 +24,19 @@ impl RuntimeClass {
         class_file: &ClassFile,
         super_class: Option<ClassRef>,
         class_ref: ClassRef,
-    ) -> Result<Self, ClassRef> {
+    ) -> Result<Self, RuntimeError> {
         let name = class_file
             .constant_pool
-            .get_class_name(class_file.this_class)
-            .expect(
-                format!(
-                    "Failed to get class name for class index {}",
-                    class_file.this_class
-                )
-                .as_str(),
-            );
+            .get_class_name(class_file.this_class)?;
 
         let mut runtime_class = RuntimeClass::new(name, super_class);
 
-        for (i, method) in class_file.methods.iter().enumerate() {
-            runtime_class.methods.push(
-                RuntimeMethod::from_method_info(method, class_ref, &class_file.constant_pool)
-                    .expect(
-                        format!(
-                            "Failed to call RuntimeMethod::from_method_info on method {}",
-                            i
-                        )
-                        .as_str(),
-                    ),
-            );
+        for (_, method) in class_file.methods.iter().enumerate() {
+            runtime_class.methods.push(RuntimeMethod::from_method_info(
+                method,
+                class_ref,
+                &class_file.constant_pool,
+            )?);
         }
 
         Ok(runtime_class)

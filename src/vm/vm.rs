@@ -74,8 +74,7 @@ impl VM {
             None
         };
 
-        let runtime_class = RuntimeClass::from_class_file(&class_file, super_class, class_ref)
-            .expect("Failed to load ClassFile into RuntimeClass!");
+        let runtime_class = RuntimeClass::from_class_file(&class_file, super_class, class_ref)?;
 
         self.classes.push(runtime_class);
 

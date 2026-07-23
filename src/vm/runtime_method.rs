@@ -26,21 +26,9 @@ impl RuntimeMethod {
         class: ClassRef,
         constant_pool: &ConstantPool,
     ) -> Result<Self, RuntimeError> {
-        let method_str: String = constant_pool.get_utf8(method.name_index).expect(
-            format!(
-                "MethodNameIndex {} is not a CONSTANT_Utf8",
-                method.name_index
-            )
-            .as_str(),
-        );
+        let method_str: String = constant_pool.get_utf8(method.name_index)?;
 
-        let descriptor: String = constant_pool.get_utf8(method.descriptor_index).expect(
-            format!(
-                "DescriptorIndex {} is not a CONSTANT_Utf8",
-                method.descriptor_index
-            )
-            .as_str(),
-        );
+        let descriptor: String = constant_pool.get_utf8(method.descriptor_index)?;
 
         Ok(Self {
             name: method_str,

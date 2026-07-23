@@ -33,13 +33,11 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
     let class_file = ClassFile::read(&mut class_reader)?;
     let mut vm: VM = VM::new();
 
-    let rt_class_ref: ClassRef = vm
-        .load_class(class_file)
-        .expect("Failed to load .class file");
+    let rt_class_ref: ClassRef = vm.load_class(class_file)?;
 
     println!("\n.class file ref: {}", rt_class_ref.0);
 
-    let class: &RuntimeClass = vm.get_class(rt_class_ref).expect("Invalid rt_class_ref");
+    let class: &RuntimeClass = vm.get_class(rt_class_ref)?;
 
     println!("Class name: {}", class.name);
     println!("Class method count: {}", class.methods.iter().count());
