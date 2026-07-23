@@ -12,6 +12,8 @@ pub enum Opcode {
     IStore1 = 0x3c,
 
     IReturn = 0xac,
+
+    InvokeStatic = 0xb8,
 }
 
 impl TryFrom<u8> for Opcode {
@@ -29,6 +31,8 @@ impl TryFrom<u8> for Opcode {
             0x3c => Ok(Self::IStore1),
 
             0xac => Ok(Self::IReturn),
+
+            0xb8 => Ok(Self::InvokeStatic),
 
             _ => Err(()),
         }

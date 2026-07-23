@@ -51,4 +51,10 @@ impl RuntimeClass {
 
         Ok(runtime_class)
     }
+
+    pub fn find_method(&self, name: &str, descriptor: &str) -> Option<usize> {
+        self.methods
+            .iter()
+            .position(|m| m.name == name && m.descriptor == descriptor)
+    }
 }
