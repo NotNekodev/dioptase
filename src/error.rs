@@ -52,4 +52,7 @@ pub enum RuntimeError {
 
     #[error("ArrayStoreException")]
     ArrayStoreException,
+
+    #[error("ArithmeticException")]
+    ArithmeticException,
 }

@@ -5,6 +5,8 @@ pub enum Opcode {
     AConstNull = 0x01,
     Bipush = 0x10,
     Sipush = 0x11,
+    Ldc = 0x12,
+    LdcW = 0x13,
 
     IConst0 = 0x03,
     IConst1 = 0x04,
@@ -39,6 +41,7 @@ pub enum Opcode {
     IAdd = 0x60,
     ISub = 0x64,
     IMul = 0x68,
+    IRem = 0x70,
 
     IInc = 0x84,
 
@@ -65,11 +68,14 @@ pub enum Opcode {
 
     Goto = 0xa7,
     IReturn = 0xac,
-    Return = 0xb1,
 
+    Return = 0xb1,
+    GetStatic = 0xb2,
+    PutStatic = 0xb3,
     GetField = 0xb4,
     PutField = 0xb5,
 
+    InvokeVirtual = 0xb6,
     InvokeSpecial = 0xb7,
     InvokeStatic = 0xb8,
 
@@ -91,6 +97,8 @@ impl TryFrom<u8> for Opcode {
 
             0x10 => Ok(Self::Bipush),
             0x11 => Ok(Self::Sipush),
+            0x12 => Ok(Self::Ldc),
+            0x13 => Ok(Self::LdcW),
 
             0x03 => Ok(Self::IConst0),
             0x04 => Ok(Self::IConst1),
@@ -131,6 +139,7 @@ impl TryFrom<u8> for Opcode {
             0x60 => Ok(Self::IAdd),
             0x64 => Ok(Self::ISub),
             0x68 => Ok(Self::IMul),
+            0x70 => Ok(Self::IRem),
 
             0x84 => Ok(Self::IInc),
 
@@ -150,11 +159,14 @@ impl TryFrom<u8> for Opcode {
 
             0xa7 => Ok(Self::Goto),
             0xac => Ok(Self::IReturn),
-            0xb1 => Ok(Self::Return),
 
+            0xb1 => Ok(Self::Return),
+            0xb2 => Ok(Self::GetStatic),
+            0xb3 => Ok(Self::PutStatic),
             0xb4 => Ok(Self::GetField),
             0xb5 => Ok(Self::PutField),
 
+            0xb6 => Ok(Self::InvokeVirtual),
             0xb7 => Ok(Self::InvokeSpecial),
             0xb8 => Ok(Self::InvokeStatic),
 

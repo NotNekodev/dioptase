@@ -997,6 +997,185 @@ impl Interpreter {
                     let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                     frame.operand_stack.push(value);
                 }
+
+                Opcode::GetStatic => {
+                    let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
+                    frame.pc += 2;
+
+                    let (owner_name, field_name, _descriptor) = vm
+                        .get_class(frame_class)?
+                        .constant_pool
+                        .get_field_ref(index)?;
+
+                    let owner_ref = vm.resolve_class(&owner_name)?;
+
+                    let slot = vm
+                        .get_class(owner_ref)?
+                        .find_static_field(&field_name)
+                        .ok_or(RuntimeError::InvalidConstantPoolEntry)?
+                        .slot;
+                    let storage_ref = vm.static_storage_ref(owner_ref)?;
+                    let value = vm.heap().get_object(storage_ref)?.fields[slot].clone();
+
+                    let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                    frame.operand_stack.push(value);
+                }
+
+                Opcode::PutStatic => {
+                    let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
+                    frame.pc += 2;
+
+                    let value = frame
+                        .operand_stack
+                        .pop()
+                        .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
+
+                    let (owner_name, field_name, _descriptor) = vm
+                        .get_class(frame_class)?
+                        .constant_pool
+                        .get_field_ref(index)?;
+
+                    let owner_ref = vm.resolve_class(&owner_name)?;
+
+                    let slot = vm
+                        .get_class(owner_ref)?
+                        .find_static_field(&field_name)
+                        .ok_or(RuntimeError::InvalidConstantPoolEntry)?
+                        .slot;
+                    let storage_ref = vm.static_storage_ref(owner_ref)?;
+                    vm.heap_mut().get_object_mut(storage_ref)?.fields[slot] = value;
+                }
+
+                Opcode::InvokeVirtual => {
+                    let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
+                    frame.pc += 2;
+
+                    let (_static_class_name, method_name, descriptor) = vm
+                        .get_class(frame_class)?
+                        .constant_pool
+                        .get_method_ref(index)?;
+                    let param_slots =
+                        crate::vm::runtime_method::RuntimeMethod::param_slot_count_from_descriptor(
+                            &descriptor,
+                        )?;
+
+                    let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+
+                    let mut args = Vec::with_capacity(param_slots);
+                    for _ in 0..param_slots {
+                        args.push(
+                            frame
+                                .operand_stack
+                                .pop()
+                                .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?,
+                        );
+                    }
+                    args.reverse();
+
+                    let objectref = match frame.operand_stack.pop() {
+                        Some(Value::Reference(Some(r))) => r,
+                        Some(Value::Reference(None)) => {
+                            return Err(RuntimeError::NullPointerException {
+                                reference: ObjectRef(0),
+                            });
+                        }
+                        _ => return Err(RuntimeError::InvalidType),
+                    };
+
+                    let obj_class = vm.heap().get_object(objectref)?.class;
+                    let (resolved_class, method_idx) =
+                        vm.resolve_virtual_method(obj_class, &method_name, &descriptor)?;
+                    let (max_locals, max_stack) = {
+                        let m = &vm.get_class(resolved_class)?.methods[method_idx];
+                        (m.max_locals, m.max_stack)
+                    };
+
+                    let mut new_frame =
+                        Frame::new(max_locals, max_stack, resolved_class, method_idx);
+                    new_frame.locals[0] = Value::Reference(Some(objectref));
+                    for (i, arg) in args.into_iter().enumerate() {
+                        new_frame.locals[i + 1] = arg;
+                    }
+                    vm.get_thread(thread_ref)?.push_frame(new_frame);
+                }
+
+                Opcode::Ldc => {
+                    let index = code[frame.pc] as u16;
+                    frame.pc += 1;
+
+                    let entry = vm
+                        .get_class(frame_class)?
+                        .constant_pool
+                        .entries
+                        .get(index as usize)
+                        .cloned()
+                        .ok_or(RuntimeError::InvalidConstantPoolEntry)?;
+
+                    let value = match entry {
+                        crate::class::constant_pool::ConstantPoolEntry::Integer(i) => Value::Int(i),
+                        crate::class::constant_pool::ConstantPoolEntry::Float(f) => Value::Float(f),
+                        crate::class::constant_pool::ConstantPoolEntry::String { string_index } => {
+                            let s = vm
+                                .get_class(frame_class)?
+                                .constant_pool
+                                .get_utf8(string_index)?;
+                            Value::Reference(Some(vm.heap_mut().allocate_string(s)))
+                        }
+                        _ => return Err(RuntimeError::InvalidConstantPoolEntry),
+                    };
+
+                    let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                    frame.operand_stack.push(value);
+                }
+
+                Opcode::LdcW => {
+                    let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
+                    frame.pc += 2;
+
+                    let entry = vm
+                        .get_class(frame_class)?
+                        .constant_pool
+                        .entries
+                        .get(index as usize)
+                        .cloned()
+                        .ok_or(RuntimeError::InvalidConstantPoolEntry)?;
+
+                    let value = match entry {
+                        crate::class::constant_pool::ConstantPoolEntry::Integer(i) => Value::Int(i),
+                        crate::class::constant_pool::ConstantPoolEntry::Float(f) => Value::Float(f),
+                        crate::class::constant_pool::ConstantPoolEntry::String { string_index } => {
+                            let s = vm
+                                .get_class(frame_class)?
+                                .constant_pool
+                                .get_utf8(string_index)?;
+                            Value::Reference(Some(vm.heap_mut().allocate_string(s)))
+                        }
+                        _ => return Err(RuntimeError::InvalidConstantPoolEntry),
+                    };
+
+                    let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                    frame.operand_stack.push(value);
+                }
+
+                Opcode::IRem => {
+                    let value2 = match frame.operand_stack.pop() {
+                        Some(Value::Int(i)) => i,
+                        _ => return Err(RuntimeError::InvalidType),
+                    };
+
+                    let value1 = match frame.operand_stack.pop() {
+                        Some(Value::Int(i)) => i,
+                        _ => return Err(RuntimeError::InvalidType),
+                    };
+
+                    if value2 == 0 {
+                        return Err(RuntimeError::ArithmeticException);
+                    }
+
+                    let res = value1 - (value1 / value2) * value2;
+
+                    frame.operand_stack.push(Value::Int(res));
+                }
             }
         }
     }

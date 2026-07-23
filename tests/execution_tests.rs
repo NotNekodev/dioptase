@@ -7,7 +7,7 @@ use std::{
 
 const TEST_CP: &str = "./tests/test_cp";
 
-const FIXTURES: [TestFixture; 15] = [
+const FIXTURES: [TestFixture; 20] = [
     TestFixture {
         source_path: "add_test/AddTest.java",
         entry_class: "AddTest",
@@ -97,6 +97,36 @@ const FIXTURES: [TestFixture; 15] = [
         entry_class: "ObjectArrayTest",
         class_path: "object_array_test",
         expected_return: 2,
+    },
+    TestFixture {
+        source_path: "invoke_virtual_test/InvokeVirtualTest.java",
+        entry_class: "InvokeVirtualTest",
+        class_path: "invoke_virtual_test",
+        expected_return: 2,
+    },
+    TestFixture {
+        source_path: "ldc_test/LdcTest.java",
+        entry_class: "LdcTest",
+        class_path: "ldc_test",
+        expected_return: 106,
+    },
+    TestFixture {
+        source_path: "getstatic_test/GetStaticTest.java",
+        entry_class: "GetStaticTest",
+        class_path: "getstatic_test",
+        expected_return: 42,
+    },
+    TestFixture {
+        source_path: "putstatic_test/PutStaticTest.java",
+        entry_class: "PutStaticTest",
+        class_path: "putstatic_test",
+        expected_return: 30,
+    },
+    TestFixture {
+        source_path: "clinit_test/ClinitTest.java",
+        entry_class: "ClinitTest",
+        class_path: "clinit_test",
+        expected_return: 42,
     },
 ];
 

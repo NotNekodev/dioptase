@@ -12,16 +12,16 @@ pub struct RuntimeField {
 }
 
 impl RuntimeField {
-    pub fn from_field_infos(
+    pub fn partition_field_infos(
         fields: &[FieldInfo],
         constant_pool: &ConstantPool,
-    ) -> Result<Vec<Self>, RuntimeError> {
-        let mut out = Vec::new();
-        let mut slot = 0;
+    ) -> Result<(Vec<Self>, Vec<Self>), RuntimeError> {
+        let mut instance_fields = Vec::new();
+        let mut static_fields = Vec::new();
+        let mut instance_slot = 0;
+        let mut static_slot = 0;
+
         for f in fields {
-            if f.access_flags.contains(FieldAccessFlags::STATIC) {
-                continue;
-            }
             let name = constant_pool.get_utf8(f.name_index)?;
             let descriptor = constant_pool.get_utf8(f.descriptor_index)?;
             let width = if descriptor == "J" || descriptor == "D" {
@@ -29,13 +29,24 @@ impl RuntimeField {
             } else {
                 1
             };
-            out.push(Self {
-                name,
-                descriptor,
-                slot,
-            });
-            slot += width;
+
+            if f.access_flags.contains(FieldAccessFlags::STATIC) {
+                static_fields.push(Self {
+                    name,
+                    descriptor,
+                    slot: static_slot,
+                });
+                static_slot += width;
+            } else {
+                instance_fields.push(Self {
+                    name,
+                    descriptor,
+                    slot: instance_slot,
+                });
+                instance_slot += width;
+            }
         }
-        Ok(out)
+
+        Ok((instance_fields, static_fields))
     }
 }

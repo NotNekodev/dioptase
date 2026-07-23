@@ -11,7 +11,7 @@ use crate::{
         runtime_class::{ClassRef, RuntimeClass},
         runtime_method::RuntimeMethod,
         thread::{Thread, ThreadRef},
-        value::Value,
+        value::{ObjectRef, Value},
     },
 };
 
@@ -23,6 +23,7 @@ pub struct VM {
     main_thread: ThreadRef,
     classpath: ClassPath,
     heap: Heap,
+    static_storage: HashMap<ClassRef, ObjectRef>,
 }
 
 #[allow(dead_code)]
@@ -35,6 +36,7 @@ impl VM {
             classes_by_name: HashMap::new(),
             classpath: ClassPath::empty(),
             heap: Heap::new(),
+            static_storage: HashMap::new(),
         }
     }
 
@@ -131,6 +133,39 @@ impl VM {
         }
     }
 
+    fn ensure_class_initialized(&mut self, class_ref: ClassRef) -> Result<(), RuntimeError> {
+        if self.static_storage.contains_key(&class_ref) {
+            return Ok(());
+        }
+
+        let static_slot_count = self.get_class(class_ref)?.static_slot_count();
+        let storage_ref = self
+            .heap_mut()
+            .allocate_object(class_ref, static_slot_count);
+        self.static_storage.insert(class_ref, storage_ref);
+
+        if let Some(clinit_idx) = self.get_class(class_ref)?.find_method("<clinit>", "()V") {
+            let method = self.get_method(class_ref, clinit_idx)?;
+            let (max_locals, max_stack) = (method.max_locals, method.max_stack);
+
+            let clinit_thread = self.create_thread();
+            let frame = Frame::new(max_locals, max_stack, class_ref, clinit_idx);
+            self.get_thread(clinit_thread)?.push_frame(frame);
+            Interpreter::run(self, clinit_thread)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn static_storage_ref(&self, class_ref: ClassRef) -> Result<ObjectRef, RuntimeError> {
+        self.static_storage
+            .get(&class_ref)
+            .copied()
+            .ok_or_else(|| RuntimeError::ClassNotFound {
+                class: format!("(statics uninitialized for class index {})", class_ref.0),
+            })
+    }
+
     pub fn load_class(&mut self, class_file: ClassFile) -> Result<ClassRef, RuntimeError> {
         let super_class = if class_file.super_class == 0 {
             None
@@ -147,8 +182,10 @@ impl VM {
         let runtime_class = RuntimeClass::from_class_file(&class_file, super_class, class_ref)?;
 
         self.classes_by_name
-            .insert(runtime_class.name.clone(), ClassRef(id));
+            .insert(runtime_class.name.clone(), class_ref);
         self.classes.push(runtime_class);
+
+        self.ensure_class_initialized(class_ref)?;
 
         Ok(class_ref)
     }
@@ -207,5 +244,29 @@ impl VM {
         }
 
         Ok(false)
+    }
+
+    pub fn resolve_virtual_method(
+        &self,
+        start: ClassRef,
+        name: &str,
+        descriptor: &str,
+    ) -> Result<(ClassRef, usize), RuntimeError> {
+        let mut current = Some(start);
+
+        while let Some(class_ref) = current {
+            let class = self.get_class(class_ref)?;
+
+            if let Some(index) = class.find_method(name, descriptor) {
+                return Ok((class_ref, index));
+            }
+
+            current = class.super_class;
+        }
+
+        Err(RuntimeError::MethodNotFound {
+            class: self.get_class(start)?.name.clone(),
+            method: name.to_string(),
+        })
     }
 }

@@ -8,7 +8,7 @@ pub struct ConstantPool {
 }
 
 #[allow(dead_code)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum ConstantPoolEntry {
     Utf8(String),
     Class {
@@ -25,6 +25,12 @@ pub enum ConstantPoolEntry {
     NameAndType {
         name_index: u16,
         descriptor_index: u16,
+    },
+
+    Integer(i32),
+    Float(f32),
+    String {
+        string_index: u16,
     },
     Unknown,
 }
@@ -89,6 +95,21 @@ impl ConstantPool {
                         name_index,
                         descriptor_index,
                     }
+                }
+
+                3 => {
+                    let bits = reader.read_u32()?;
+                    ConstantPoolEntry::Integer(bits as i32)
+                }
+
+                4 => {
+                    let bits = reader.read_u32()?;
+                    ConstantPoolEntry::Float(f32::from_bits(bits))
+                }
+
+                8 => {
+                    let string_index = reader.read_u16()?;
+                    ConstantPoolEntry::String { string_index }
                 }
 
                 _ => {

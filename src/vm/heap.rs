@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::vm::{
     runtime_class::ClassRef,
     value::{ObjectRef, Value},
@@ -58,6 +60,7 @@ pub struct ArrayObject {
 pub enum HeapEntry {
     Object(Object),
     Array(ArrayObject),
+    Str(Rc<str>),
 }
 
 #[allow(dead_code)]
@@ -103,6 +106,12 @@ impl Heap {
         ObjectRef(id)
     }
 
+    pub fn allocate_string(&mut self, s: String) -> ObjectRef {
+        let id = self.entries.len();
+        self.entries.push(HeapEntry::Str(s.into()));
+        ObjectRef(id)
+    }
+
     pub fn get(&self, r: ObjectRef) -> &HeapEntry {
         &self.entries[r.0]
     }
@@ -140,6 +149,13 @@ impl Heap {
     ) -> Result<&mut Object, crate::error::RuntimeError> {
         match &mut self.entries[r.0] {
             HeapEntry::Object(o) => Ok(o),
+            _ => Err(crate::error::RuntimeError::InvalidType),
+        }
+    }
+
+    pub fn get_string(&self, r: ObjectRef) -> Result<&str, crate::error::RuntimeError> {
+        match &self.entries[r.0] {
+            HeapEntry::Str(s) => Ok(s),
             _ => Err(crate::error::RuntimeError::InvalidType),
         }
     }

@@ -14,6 +14,7 @@ pub struct RuntimeClass {
     pub methods: Vec<RuntimeMethod>,
     pub constant_pool: ConstantPool,
     pub instance_fields: Vec<RuntimeField>,
+    pub static_fields: Vec<RuntimeField>,
 }
 
 #[allow(dead_code)]
@@ -27,6 +28,7 @@ impl RuntimeClass {
                 entries: Vec::new(),
             },
             instance_fields: Vec::new(),
+            static_fields: Vec::new(),
         }
     }
 
@@ -42,10 +44,13 @@ impl RuntimeClass {
         let mut runtime_class = RuntimeClass::new(name, super_class);
 
         runtime_class.constant_pool = class_file.constant_pool.clone();
-        runtime_class.instance_fields =
-            RuntimeField::from_field_infos(&class_file.fields, &class_file.constant_pool)?;
 
-        for (_, method) in class_file.methods.iter().enumerate() {
+        let (instance_fields, static_fields) =
+            RuntimeField::partition_field_infos(&class_file.fields, &class_file.constant_pool)?;
+        runtime_class.instance_fields = instance_fields;
+        runtime_class.static_fields = static_fields;
+
+        for method in class_file.methods.iter() {
             runtime_class.methods.push(RuntimeMethod::from_method_info(
                 method,
                 class_ref,
@@ -66,8 +71,25 @@ impl RuntimeClass {
         self.instance_fields.iter().find(|f| f.name == name)
     }
 
+    pub fn find_static_field(&self, name: &str) -> Option<&RuntimeField> {
+        self.static_fields.iter().find(|f| f.name == name)
+    }
+
     pub fn instance_slot_count(&self) -> usize {
         self.instance_fields
+            .iter()
+            .map(|f| {
+                if f.descriptor == "J" || f.descriptor == "D" {
+                    2
+                } else {
+                    1
+                }
+            })
+            .sum()
+    }
+
+    pub fn static_slot_count(&self) -> usize {
+        self.static_fields
             .iter()
             .map(|f| {
                 if f.descriptor == "J" || f.descriptor == "D" {

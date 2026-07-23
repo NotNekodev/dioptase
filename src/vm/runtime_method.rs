@@ -76,16 +76,19 @@ impl RuntimeMethod {
         })
     }
 
-    pub fn param_slot_count(&self) -> usize {
-        let descriptor = MethodDescriptor::from_str(&self.descriptor.as_str()).unwrap();
-
-        descriptor
-            .parameter_types()
+    pub fn param_slot_count_from_descriptor(descriptor: &str) -> Result<usize, RuntimeError> {
+        let d = MethodDescriptor::from_str(descriptor)
+            .map_err(|_| RuntimeError::InvalidConstantPoolEntry)?;
+        Ok(d.parameter_types()
             .iter()
-            .map(|param| match param {
+            .map(|p| match p {
                 TypeDescriptor::Long | TypeDescriptor::Double => 2,
                 _ => 1,
             })
-            .sum()
+            .sum())
+    }
+
+    pub fn param_slot_count(&self) -> usize {
+        Self::param_slot_count_from_descriptor(&self.descriptor).unwrap()
     }
 }
