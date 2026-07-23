@@ -1,4 +1,9 @@
-use std::{env, error::Error, path::PathBuf, process::Command};
+use std::{
+    env,
+    error::Error,
+    path::PathBuf,
+    process::{Command, Stdio},
+};
 
 const TEST_CP: &str = "./tests/test_cp";
 
@@ -107,6 +112,14 @@ struct TestFixture<'a> {
 
 impl<'a> TestFixture<'a> {
     pub fn test(&self) -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
+        let _ = Command::new("echo")
+            .arg(format!(
+                "Test {} ({}) expected value: {}",
+                self.entry_class, self.source_path, self.expected_return
+            ))
+            .stdout(Stdio::inherit())
+            .output()?;
+
         let compile_output = Command::new("javac")
             .arg("-source")
             .arg("8")

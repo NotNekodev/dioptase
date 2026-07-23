@@ -40,7 +40,7 @@ pub enum Opcode {
     ISub = 0x64,
     IMul = 0x68,
 
-    IInc = 0x86,
+    IInc = 0x84,
 
     AALoad = 0x32,
 

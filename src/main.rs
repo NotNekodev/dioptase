@@ -16,7 +16,7 @@ fn main() -> ExitCode {
     match real_main() {
         Ok(code) => ExitCode::from(code as u8),
         Err(err) => {
-            eprintln!("Error: {}", err);
+            eprintln!("\x1b[1;31merror:\x1b[0m {}", err);
             ExitCode::FAILURE
         }
     }
@@ -46,7 +46,7 @@ fn real_main() -> Result<i32, Box<dyn Error + Send + Sync + 'static>> {
         None => {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                "no main class specified",
+                "No main class to run specified",
             )
             .into());
         }
@@ -54,8 +54,6 @@ fn real_main() -> Result<i32, Box<dyn Error + Send + Sync + 'static>> {
 
     let mut vm: VM = VM::new();
     vm.set_classpath(classpath);
-
-    println!("JVM Main file: {}", main_class);
 
     let ret_value = vm.run_main(main_class)?;
 

@@ -780,11 +780,6 @@ impl Interpreter {
 
                     let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                     frame.operand_stack.push(Value::Reference(Some(array_ref)));
-
-                    println!(
-                        "Created array with type {:?}, size {} -> {:?}",
-                        array_type, length, array_ref
-                    );
                 }
 
                 Opcode::ANewArray => {
@@ -812,11 +807,6 @@ impl Interpreter {
 
                     let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                     frame.operand_stack.push(Value::Reference(Some(array_ref)));
-
-                    println!(
-                        "Created aarray with type, size {} -> {:?}",
-                        length, array_ref
-                    );
                 }
 
                 Opcode::IAStore => {
@@ -1003,11 +993,6 @@ impl Interpreter {
                             }
                         }
                     };
-
-                    println!(
-                        "Gettin reference array value for array {:?} at index {} -> {:?}",
-                        reference, index, value
-                    );
 
                     let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                     frame.operand_stack.push(value);
