@@ -7,6 +7,10 @@ pub struct Cli {
     #[arg(short, long)]
     pub version: bool,
 
-    /// Input class file
-    pub class_file: Option<String>,
+    /// Classpath, path to directories containing .class files or to .jar archives. Denominator is ; on Windows and : on UNIX
+    #[arg(long = "cp", visible_alias = "classpath")]
+    pub classpath: Option<String>,
+
+    /// Input class to run
+    pub class: Option<String>,
 }

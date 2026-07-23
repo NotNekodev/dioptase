@@ -3,6 +3,7 @@ use crate::vm::frame::Frame;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ThreadRef(pub usize);
 
+#[allow(dead_code)]
 pub struct Thread {
     pub frames: Vec<Frame>,
     pub id: usize,

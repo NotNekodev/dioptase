@@ -29,4 +29,7 @@ pub enum RuntimeError {
 
     #[error("Invalid type")]
     InvalidType,
+
+    #[error("Failed to load class {class} from classpath: {source_cp}")]
+    ClassLoadError { class: String, source_cp: String },
 }

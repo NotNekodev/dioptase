@@ -1,41 +1,28 @@
-use std::collections::HashMap;
+use std::rc::Rc;
 
 use crate::{
     error::RuntimeError,
-    vm::{
-        frame::Frame,
-        opcode::Opcode,
-        runtime_class::{ClassRef, RuntimeClass},
-        thread::Thread,
-        value::Value,
-    },
+    vm::{frame::Frame, opcode::Opcode, thread::ThreadRef, value::Value, vm::VM},
 };
 
 pub struct Interpreter;
 
 impl Interpreter {
-    pub fn run(
-        classes: &[RuntimeClass],
-        classes_by_name: &HashMap<String, ClassRef>,
-        thread: &mut Thread,
-    ) -> Result<Value, RuntimeError> {
+    pub fn run(vm: &mut VM, thread_ref: ThreadRef) -> Result<Value, RuntimeError> {
         loop {
-            let thread_id = thread.id;
             let (frame_class, frame_method_idx) = {
-                let f = thread
-                    .current_frame()
-                    .ok_or(RuntimeError::NoCurrentFrame { thread_id })?;
+                let thread = vm.get_thread(thread_ref)?;
+                let f = thread.current_frame().ok_or(RuntimeError::NoCurrentFrame {
+                    thread_id: thread_ref.0,
+                })?;
                 (f.class, f.method_index)
             };
 
-            let class = &classes[frame_class.0];
-            let method = &class.methods[frame_method_idx];
-            let code = &method.code;
+            let code: Rc<[u8]> = vm.get_method(frame_class, frame_method_idx)?.code.clone();
 
-            let frame = thread.current_frame().unwrap();
+            let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
             let op = code[frame.pc];
             frame.pc += 1;
-
             let opcode = Opcode::try_from(op).map_err(|_| RuntimeError::InvalidOpcode {
                 opcode: op,
                 pc: frame.pc - 1,
@@ -146,9 +133,9 @@ impl Interpreter {
                         .pop()
                         .ok_or(RuntimeError::OperandStackUnderflow { pc: frame.pc })?;
 
-                    thread.pop_frame();
+                    vm.get_thread(thread_ref)?.pop_frame();
 
-                    match thread.current_frame() {
+                    match vm.get_thread(thread_ref)?.current_frame() {
                         Some(caller) => caller.operand_stack.push(ret),
                         None => return Ok(ret),
                     }
@@ -317,36 +304,29 @@ impl Interpreter {
                 }
 
                 Opcode::InvokeStatic => {
-                    let indexbyte1 = code[frame.pc];
-                    frame.pc += 1;
-                    let indexbyte2 = code[frame.pc];
-                    frame.pc += 1;
-                    let index: u16 = u16::from_be_bytes([indexbyte1, indexbyte2]);
+                    let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
+                    frame.pc += 2;
 
-                    let (target_class_name, method_name, descriptor) =
-                        class.constant_pool.get_method_ref(index)?;
+                    let (target_class_name, method_name, descriptor) = vm
+                        .get_class(frame_class)?
+                        .constant_pool
+                        .get_method_ref(index)?;
 
-                    println!(
-                        "InvokeStatic {}.{}{}",
-                        target_class_name, method_name, descriptor
-                    );
+                    let target_class_ref = vm.resolve_class(&target_class_name)?;
 
-                    let target_class_ref = classes_by_name.get(&target_class_name).ok_or(
-                        RuntimeError::ClassNotFound {
-                            class: target_class_name.clone(),
-                        },
-                    )?;
-                    let target_class = &classes[target_class_ref.0];
+                    let (target_method_idx, max_locals, max_stack, argument_count) = {
+                        let target_class = vm.get_class(target_class_ref)?;
+                        let idx = target_class.find_method(&method_name, &descriptor).ok_or(
+                            RuntimeError::MethodNotFound {
+                                class: target_class.name.clone(),
+                                method: method_name.clone(),
+                            },
+                        )?;
+                        let m = &target_class.methods[idx];
+                        (idx, m.max_locals, m.max_stack, m.param_slot_count())
+                    };
 
-                    let target_method_idx = target_class
-                        .find_method(method_name.as_str(), descriptor.as_str())
-                        .ok_or(RuntimeError::MethodNotFound {
-                            class: target_class.name.clone(),
-                            method: method_name.clone(),
-                        })?;
-                    let target_method = &target_class.methods[target_method_idx];
-
-                    let argument_count = target_method.param_slot_count();
+                    let frame = vm.get_thread(thread_ref)?.current_frame().unwrap(); // fresh borrow
                     let mut args = Vec::with_capacity(argument_count);
 
                     for _ in 0..argument_count {
@@ -359,17 +339,12 @@ impl Interpreter {
                     }
                     args.reverse();
 
-                    let mut new_frame = Frame::new(
-                        target_method.max_locals,
-                        target_method.max_stack,
-                        *target_class_ref,
-                        target_method_idx,
-                    );
-
+                    let mut new_frame =
+                        Frame::new(max_locals, max_stack, target_class_ref, target_method_idx);
                     for (i, arg) in args.into_iter().enumerate() {
                         new_frame.locals[i] = arg;
                     }
-                    thread.push_frame(new_frame);
+                    vm.get_thread(thread_ref)?.push_frame(new_frame);
                 }
             }
         }

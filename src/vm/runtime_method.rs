@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{rc::Rc, str::FromStr};
 
 use jdescriptor::{MethodDescriptor, TypeDescriptor};
 
@@ -22,7 +22,7 @@ pub struct RuntimeMethod {
     pub max_stack: usize,
     pub max_locals: usize,
 
-    pub code: Vec<u8>,
+    pub code: Rc<[u8]>,
 }
 
 impl RuntimeMethod {
@@ -72,7 +72,7 @@ impl RuntimeMethod {
             max_stack: max_stack,
             max_locals: max_locals,
 
-            code: code,
+            code: code.into(),
         })
     }
 

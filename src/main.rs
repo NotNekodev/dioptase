@@ -1,16 +1,11 @@
 use crate::{
-    class::{class_file::ClassFile, reader::ClassReader},
     cli::Cli,
     error::RuntimeError,
-    vm::{
-        runtime_class::{ClassRef, RuntimeClass},
-        value::Value,
-        vm::VM,
-    },
+    vm::{classpath::ClassPath, value::Value, vm::VM},
 };
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::Parser;
-use std::{env, error::Error, fs, process::ExitCode};
+use std::{env, error::Error, process::ExitCode};
 
 mod class;
 mod cli;
@@ -28,7 +23,10 @@ fn main() -> ExitCode {
 }
 
 fn real_main() -> Result<i32, Box<dyn Error + Send + Sync + 'static>> {
-    let cli = Cli::parse();
+    let args: Vec<String> = std::env::args()
+        .map(|a| if a == "-cp" { "--cp".to_string() } else { a })
+        .collect();
+    let cli = Cli::parse_from(args);
 
     if cli.version {
         println!("dioptase - {}", env!("CARGO_PKG_DESCRIPTION"));
@@ -38,33 +36,28 @@ fn real_main() -> Result<i32, Box<dyn Error + Send + Sync + 'static>> {
         return Ok(0);
     }
 
-    let data: Vec<u8> = fs::read(cli.class_file.context("No class file provided")?)
-        .context("Could not read the provided class file")?;
-    let mut class_reader: ClassReader = ClassReader::new(data);
+    let classpath = match &cli.classpath {
+        Some(cp) => ClassPath::parse(cp),
+        None => ClassPath::empty(),
+    };
 
-    let class_file = ClassFile::read(&mut class_reader)?;
+    let main_class = match &cli.class {
+        Some(class) => class,
+        None => {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "no main class specified",
+            )
+            .into());
+        }
+    };
+
     let mut vm: VM = VM::new();
+    vm.set_classpath(classpath);
 
-    let rt_class_ref: ClassRef = vm.load_class(class_file)?;
+    println!("JVM Main file: {}", main_class);
 
-    println!("\n.class file ref: {}", rt_class_ref.0);
-
-    let class: &RuntimeClass = vm.get_class(rt_class_ref)?;
-
-    println!("Class name: {}", class.name);
-    println!("Class method count: {}", class.methods.iter().count());
-    println!("Class methods:");
-    for (i, method) in class.methods.iter().enumerate() {
-        println!(
-            "\t#{}: {}{} ({:#06x})",
-            i,
-            method.name,
-            method.descriptor,
-            method.access.bits()
-        );
-    }
-
-    let ret_value = vm.run_main()?;
+    let ret_value = vm.run_main(main_class)?;
 
     match ret_value {
         Value::Int(val) => Ok(val),

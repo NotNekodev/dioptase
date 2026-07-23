@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
 use crate::{
-    class::{class_file::ClassFile, method::MethodAccessFlags},
+    class::{class_file::ClassFile, method::MethodAccessFlags, reader::ClassReader},
     error::RuntimeError,
     vm::{
+        classpath::ClassPath,
         frame::Frame,
         interpreter::Interpreter,
         runtime_class::{ClassRef, RuntimeClass},
@@ -19,6 +20,7 @@ pub struct VM {
     classes_by_name: HashMap<String, ClassRef>,
     threads: Vec<Thread>,
     main_thread: ThreadRef,
+    classpath: ClassPath,
 }
 
 #[allow(dead_code)]
@@ -29,7 +31,38 @@ impl VM {
             threads: Vec::new(),
             main_thread: ThreadRef(0),
             classes_by_name: HashMap::new(),
+            classpath: ClassPath::empty(),
         }
+    }
+
+    pub fn set_classpath(&mut self, classpath: ClassPath) {
+        self.classpath = classpath;
+    }
+
+    pub fn resolve_class(&mut self, binary_name: &str) -> Result<ClassRef, RuntimeError> {
+        if let Some(existing) = self.classes_by_name.get(binary_name) {
+            return Ok(*existing);
+        }
+
+        let path = self.classpath.find_class_file(binary_name).ok_or_else(|| {
+            RuntimeError::ClassNotFound {
+                class: binary_name.to_string(),
+            }
+        })?;
+
+        let data = std::fs::read(&path).map_err(|e| RuntimeError::ClassLoadError {
+            class: binary_name.to_string(),
+            source_cp: e.to_string(),
+        })?;
+
+        let mut reader = ClassReader::new(data);
+        let class_file =
+            ClassFile::read(&mut reader).map_err(|e| RuntimeError::ClassLoadError {
+                class: binary_name.to_string(),
+                source_cp: e.to_string(),
+            })?;
+
+        self.load_class(class_file)
     }
 
     pub fn get_class(&self, class_index: ClassRef) -> Result<&RuntimeClass, RuntimeError> {
@@ -114,45 +147,32 @@ impl VM {
         Ok(class_ref)
     }
 
-    pub fn run_main(&mut self) -> Result<Value, RuntimeError> {
+    pub fn run_main(&mut self, main_class: &str) -> Result<Value, RuntimeError> {
         let main_thread = self.create_thread();
 
-        let mut main_class: Option<ClassRef> = None;
+        let main_class: ClassRef = self.resolve_class(main_class)?;
         let mut main_method_idx: Option<usize> = None;
 
-        'outer: for (i, class) in self.classes.iter().enumerate() {
-            for (j, method) in class.methods.iter().enumerate() {
-                if method.name == "main"
-                    && method.descriptor == "([Ljava/lang/String;)I"
-                    && method.access.contains(MethodAccessFlags::STATIC)
-                    && method.access.contains(MethodAccessFlags::PUBLIC)
-                {
-                    main_class = Some(ClassRef(i));
-                    main_method_idx = Some(j);
-                    break 'outer;
-                }
+        for (j, method) in self.get_class(main_class)?.methods.iter().enumerate() {
+            if method.name == "main"
+                && method.descriptor == "([Ljava/lang/String;)I"
+                && method.access.contains(MethodAccessFlags::STATIC)
+                && method.access.contains(MethodAccessFlags::PUBLIC)
+            {
+                main_method_idx = Some(j);
             }
         }
 
-        let class_ref = main_class.ok_or(RuntimeError::MethodNotFound {
-            class: "(main_class)".to_string(),
-            method: "main".to_string(),
-        })?;
-
         let method_idx = main_method_idx.unwrap();
 
-        let method = self.get_method(class_ref, method_idx)?;
+        let method = self.get_method(main_class, method_idx)?;
 
         let max_locals = method.max_locals;
         let max_stack = method.max_stack;
 
-        let frame = Frame::new(max_locals, max_stack, class_ref, method_idx);
-        self.threads[main_thread.0].push_frame(frame);
-        let result = Interpreter::run(
-            &self.classes,
-            &self.classes_by_name,
-            &mut self.threads[main_thread.0],
-        )?;
+        let frame = Frame::new(max_locals, max_stack, main_class, method_idx);
+        self.get_thread(main_thread)?.push_frame(frame);
+        let result = Interpreter::run(self, main_thread)?;
         Ok(result)
     }
 }
