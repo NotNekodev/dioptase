@@ -2,7 +2,7 @@ use std::{env, error::Error, path::PathBuf, process::Command};
 
 const TEST_CP: &str = "./tests/test_cp";
 
-const FIXTURES: [TestFixture; 11] = [
+const FIXTURES: [TestFixture; 12] = [
     TestFixture {
         source_path: "add_test/AddTest.java",
         entry_class: "AddTest",
@@ -68,6 +68,12 @@ const FIXTURES: [TestFixture; 11] = [
         entry_class: "IfNonNullTest",
         class_path: "ifnonnull_test",
         expected_return: 55,
+    },
+    TestFixture {
+        source_path: "pop_test/PopTest.java",
+        entry_class: "PopTest",
+        class_path: "pop_test",
+        expected_return: 7,
     },
 ];
 
