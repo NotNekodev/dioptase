@@ -1,12 +1,13 @@
 use simd_cesu8::mutf8;
 
-use crate::class::reader::ClassReader;
+use crate::{class::reader::ClassReader, error::RuntimeError};
 use std::error::Error;
 
 pub struct ConstantPool {
     pub entries: Vec<ConstantPoolEntry>,
 }
 
+#[allow(dead_code)]
 pub enum ConstantPoolEntry {
     Utf8(String),
     Class {
@@ -86,13 +87,22 @@ impl ConstantPool {
         Ok(Self { entries })
     }
 
-    pub fn get_utf8(&self, index: u16) -> String {
+    pub fn get_utf8(&self, index: u16) -> Result<String, RuntimeError> {
         match self.entries.get(index as usize) {
-            Some(ConstantPoolEntry::Utf8(s)) => {
-                return s.clone();
-            }
-            Some(_) => panic!("entries[{}] does not point to a CONSTANT_Utf8 entry", index),
-            None => panic!("entries[{}] index out of bounds", index),
+            Some(ConstantPoolEntry::Utf8(s)) => Ok(s.clone()),
+            _ => Err(RuntimeError::InvalidConstantPoolEntry),
+        }
+    }
+
+    pub fn get_class_name(&self, index: u16) -> Result<String, RuntimeError> {
+        let entry = self
+            .entries
+            .get(index as usize)
+            .ok_or(RuntimeError::InvalidConstantPoolEntry)?;
+
+        match entry {
+            ConstantPoolEntry::Class { name_index } => self.get_utf8(*name_index),
+            _ => Err(RuntimeError::InvalidConstantPoolEntry),
         }
     }
 

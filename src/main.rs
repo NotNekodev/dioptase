@@ -1,6 +1,10 @@
 use crate::{
-    class::{class_file::ClassFile, constant_pool::ConstantPoolEntry, reader::ClassReader},
+    class::{class_file::ClassFile, reader::ClassReader},
     cli::Cli,
+    vm::{
+        runtime_class::{ClassRef, RuntimeClass},
+        vm::VM,
+    },
 };
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -8,6 +12,8 @@ use std::{env, error::Error, fs};
 
 mod class;
 mod cli;
+mod error;
+mod vm;
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
     let cli = Cli::parse();
@@ -25,63 +31,27 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
     let mut class_reader: ClassReader = ClassReader::new(data);
 
     let class_file = ClassFile::read(&mut class_reader)?;
+    let mut vm: VM = VM::new();
 
-    println!("\nConstant pool dump:");
+    let rt_class_ref: ClassRef = vm
+        .load_class(class_file)
+        .expect("Failed to load .class file");
 
-    for (i, entry) in class_file.constant_pool.entries.iter().enumerate() {
+    println!("\n.class file ref: {}", rt_class_ref.0);
+
+    let class: &RuntimeClass = vm.get_class(rt_class_ref).expect("Invalid rt_class_ref");
+
+    println!("Class name: {}", class.name);
+    println!("Class method count: {}", class.methods.iter().count());
+    println!("Class methods:");
+    for (i, method) in class.methods.iter().enumerate() {
         println!(
-            "#{} {}",
+            "\t#{}: {}{} ({:#06x})",
             i,
-            match entry {
-                ConstantPoolEntry::Utf8(s) => format!("Utf8(value=\"{}\")", s),
-                ConstantPoolEntry::Class { name_index } =>
-                    format!("Class(name_idx={})", name_index),
-                ConstantPoolEntry::MethodRef {
-                    class_index,
-                    name_and_type_index,
-                } => format!(
-                    "MethodRef(class_idx={}, name_and_type_index={})",
-                    class_index, name_and_type_index
-                ),
-                ConstantPoolEntry::NameAndType {
-                    name_index,
-                    descriptor_index,
-                } => format!(
-                    "NameAndType(name_idx={}, descriptor_idx={}",
-                    name_index, descriptor_index
-                ),
-                ConstantPoolEntry::Unknown(_) => "Unknown".to_string(),
-            }
+            method.name,
+            method.descriptor,
+            method.access.bits()
         );
-    }
-
-    println!("\nMethodInfo dump:\n");
-
-    for (i, entry) in class_file.methods.iter().enumerate() {
-        let name: String = class_file.constant_pool.get_utf8(entry.name_index);
-        let descriptor: String = class_file.constant_pool.get_utf8(entry.descriptor_index);
-        println!(
-            "Method #{}: Name={} Descriptor={} AccessFlags={:#06x}",
-            i,
-            name.as_str(),
-            descriptor.as_str(),
-            entry.access_flags.bits()
-        );
-
-        /*println!("Method #{} Attributes:", i);
-
-        for (j, att_entry) in entry.attributes.iter().enumerate() {
-            println!(
-                "\tAttribute #{}: Name={} DataSize={:#06x}",
-                j,
-                class_file
-                    .constant_pool
-                    .get_utf8(att_entry.attribute_name_idx),
-                att_entry.info.iter().count()
-            );
-        }*/
-
-        println!();
     }
 
     Ok(())
