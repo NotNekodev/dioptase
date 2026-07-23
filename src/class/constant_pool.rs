@@ -1,6 +1,5 @@
-use simd_cesu8::mutf8;
-
 use crate::{class::reader::ClassReader, error::RuntimeError};
+use simd_cesu8::mutf8;
 use std::error::Error;
 
 #[derive(Clone)]
@@ -27,7 +26,7 @@ pub enum ConstantPoolEntry {
         name_index: u16,
         descriptor_index: u16,
     },
-    Unknown(()),
+    Unknown,
 }
 
 impl ConstantPool {
@@ -37,7 +36,7 @@ impl ConstantPool {
         let mut entries = Vec::new();
 
         // index 0 is unused
-        entries.push(ConstantPoolEntry::Unknown(()));
+        entries.push(ConstantPoolEntry::Unknown);
 
         let mut i = 1;
 
