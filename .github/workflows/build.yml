@@ -1,4 +1,4 @@
-name: Build CI
+name: Test dioptase
 
 on:
   push:
@@ -20,5 +20,5 @@ jobs:
       - name: Build
         run: cargo build --verbose
 
-#      - name: Run tests
-#        run: cargo test --verbose
+      - name: Run tests
+        run: cargo test --verbose
