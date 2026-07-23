@@ -11,21 +11,20 @@ pub struct Object {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u8)]
 #[allow(dead_code)]
 pub enum ArrayElementType {
     // newarray
-    Boolean = 4,
-    Char = 5,
-    Float = 6,
-    Double = 7,
-    Byte = 8,
-    Short = 9,
-    Int = 10,
-    Long = 11,
+    Boolean,
+    Char,
+    Float,
+    Double,
+    Byte,
+    Short,
+    Int,
+    Long,
 
     // anewarray
-    Reference = 100,
+    Reference(ClassRef),
 }
 
 impl TryFrom<u8> for ArrayElementType {
@@ -42,7 +41,7 @@ impl TryFrom<u8> for ArrayElementType {
             10 => Ok(ArrayElementType::Int),
             11 => Ok(ArrayElementType::Long),
 
-            100 => Ok(ArrayElementType::Reference),
+            100 => Err(()),
             _ => Err(()),
         }
     }
@@ -95,7 +94,7 @@ impl Heap {
             ArrayElementType::Short => Value::Int(0),
             ArrayElementType::Int => Value::Int(0),
             ArrayElementType::Long => Value::Long(0),
-            ArrayElementType::Reference => Value::Reference(None),
+            ArrayElementType::Reference(_) => Value::Reference(None),
         };
         self.entries.push(HeapEntry::Array(ArrayObject {
             element_type,

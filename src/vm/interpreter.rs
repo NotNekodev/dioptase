@@ -787,6 +787,38 @@ impl Interpreter {
                     );
                 }
 
+                Opcode::ANewArray => {
+                    let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
+                    frame.pc += 2;
+
+                    let length = match frame.operand_stack.pop() {
+                        Some(Value::Int(n)) if n >= 0 => n as usize,
+                        Some(Value::Int(_)) => {
+                            return Err(RuntimeError::NegativeArraySizeException);
+                        }
+                        _ => return Err(RuntimeError::InvalidType),
+                    };
+
+                    let class_name = vm
+                        .get_class(frame_class)?
+                        .constant_pool
+                        .get_class_name(index)?;
+
+                    let component = vm.resolve_class(&class_name)?;
+
+                    let array_ref = vm
+                        .heap_mut()
+                        .allocate_array(ArrayElementType::Reference(component), length);
+
+                    let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                    frame.operand_stack.push(Value::Reference(Some(array_ref)));
+
+                    println!(
+                        "Created aarray with type, size {} -> {:?}",
+                        length, array_ref
+                    );
+                }
+
                 Opcode::IAStore => {
                     let value = match frame.operand_stack.pop() {
                         Some(Value::Int(n)) => n as i32,
