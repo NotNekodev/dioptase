@@ -863,6 +863,28 @@ impl Interpreter {
                     let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                     frame.operand_stack.push(value);
                 }
+
+                Opcode::ArrayLength => {
+                    let arrayref = match frame.operand_stack.pop() {
+                        Some(Value::Reference(aref)) => aref,
+                        _ => return Err(RuntimeError::InvalidType),
+                    };
+
+                    let reference = match arrayref {
+                        Some(value) => value,
+                        None => {
+                            return Err(RuntimeError::NullPointerException {
+                                reference: ObjectRef(0),
+                            });
+                        }
+                    };
+
+                    let array = vm.heap_mut().get_array_mut(reference)?;
+                    let length = array.elements.len();
+
+                    let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                    frame.operand_stack.push(Value::Int(length as i32));
+                }
             }
         }
     }

@@ -72,6 +72,7 @@ pub enum Opcode {
 
     New = 0xbb,
     NewArray = 0xbc,
+    ArrayLength = 0xbe,
 
     IfNull = 0xc6,
     IfNonNull = 0xc7,
@@ -152,6 +153,7 @@ impl TryFrom<u8> for Opcode {
 
             0xbb => Ok(Self::New),
             0xbc => Ok(Self::NewArray),
+            0xbe => Ok(Self::ArrayLength),
 
             0xc6 => Ok(Self::IfNull),
             0xc7 => Ok(Self::IfNonNull),
