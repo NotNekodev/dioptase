@@ -693,6 +693,10 @@ impl Interpreter {
                         _ => return Err(RuntimeError::InvalidType),
                     }
                 }
+
+                Opcode::AConstNull => {
+                    frame.operand_stack.push(Value::Reference(None));
+                }
             }
         }
     }

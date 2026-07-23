@@ -2,6 +2,7 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum Opcode {
+    AConstNull = 0x01,
     Bipush = 0x10,
 
     IConst0 = 0x03,
@@ -71,6 +72,8 @@ impl TryFrom<u8> for Opcode {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
+            0x01 => Ok(Self::AConstNull),
+
             0x10 => Ok(Self::Bipush),
 
             0x03 => Ok(Self::IConst0),
