@@ -11,11 +11,22 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Install OpenJDK 8
+        run: |
+          sudo apt update
+          sudo apt install -y openjdk-8-jdk
+
+          sudo ln -s /usr/lib/jvm/java-8-openjdk-amd64 /usr/lib/jvm/openjdk8
+
+      - name: Verify
+        run: |
+          test -f /usr/lib/jvm/openjdk8/jre/lib/rt.jar
 
       - name: Build
         run: cargo build --verbose

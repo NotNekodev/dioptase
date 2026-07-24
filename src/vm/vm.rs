@@ -52,16 +52,12 @@ impl VM {
             return Ok(*existing);
         }
 
-        let path = self.classpath.find_class_file(binary_name).ok_or_else(|| {
-            InternalError::ClassNotFound {
-                class: binary_name.to_string(),
-            }
-        })?;
-
-        let data = std::fs::read(&path).map_err(|e| InternalError::ClassLoadError {
-            class: binary_name.to_string(),
-            source_cp: e.to_string(),
-        })?;
+        let data =
+            self.classpath
+                .find_class(binary_name)
+                .ok_or_else(|| InternalError::ClassNotFound {
+                    class: binary_name.to_string(),
+                })?;
 
         let mut reader = ClassReader::new(data);
         let class_file =

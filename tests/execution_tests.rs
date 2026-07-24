@@ -178,12 +178,19 @@ impl<'a> TestFixture<'a> {
             .arg("--cp")
             .arg(&combined_cp)
             .arg(&self.entry_class)
+            .arg("--no-rt")
+            .arg("--no-ext")
             .status()?;
 
         let res = run_output.code().ok_or(format!(
             "Failed to get return code from {}",
             &self.entry_class
         ))?;
+
+        let _ = Command::new("echo")
+            .arg(format!("\t-> Test {} returned {}", self.entry_class, res))
+            .stdout(Stdio::inherit())
+            .output()?;
 
         assert_eq!(
             res, self.expected_return,

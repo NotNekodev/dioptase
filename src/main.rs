@@ -36,10 +36,22 @@ fn real_main() -> Result<i32, Box<dyn Error + Send + Sync + 'static>> {
         return Ok(0);
     }
 
-    let classpath = match &cli.classpath {
+    let mut classpath = match &cli.classpath {
         Some(cp) => ClassPath::parse(cp),
         None => ClassPath::empty(),
     };
+
+    if !cli.no_rt {
+        classpath.add_bootstrap("/usr/lib/jvm/openjdk8/jre/lib/rt.jar".into());
+    }
+
+    if !cli.no_ext {
+        for entry in std::fs::read_dir("/usr/lib/jvm/openjdk8/jre/lib/ext")? {
+            let path = entry?.path();
+            println!("Adding extension directory {:?}", path);
+            classpath.add_extension(path);
+        }
+    }
 
     let main_class = match &cli.class {
         Some(class) => class,
