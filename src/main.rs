@@ -48,7 +48,6 @@ fn real_main() -> Result<i32, Box<dyn Error + Send + Sync + 'static>> {
     if !cli.no_ext {
         for entry in std::fs::read_dir("/usr/lib/jvm/openjdk8/jre/lib/ext")? {
             let path = entry?.path();
-            println!("Adding extension directory {:?}", path);
             classpath.add_extension(path);
         }
     }
