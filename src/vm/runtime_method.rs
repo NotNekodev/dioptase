@@ -9,8 +9,10 @@ use crate::{
         method::{MethodAccessFlags, MethodInfo},
     },
     error::{InternalError, RuntimeError},
-    vm::runtime_class::ClassRef,
+    vm::{runtime_class::ClassRef, value::Value, vm::VM},
 };
+
+pub type NativeFunction = fn(&mut VM, &[Value]) -> Result<Option<Value>, RuntimeError>;
 
 #[derive(Clone)]
 pub struct RuntimeExceptionHandler {
@@ -18,6 +20,18 @@ pub struct RuntimeExceptionHandler {
     pub end_pc: u16,
     pub handler_pc: u16,
     pub catch_class: Option<String>, // None = catch-all (used for `finally`)
+}
+
+#[derive(Clone, Debug)]
+pub enum MethodBody {
+    Bytecode(Rc<[u8]>),
+    Native(NativeFunction),
+    Abstract,
+    Unknown,
+}
+
+fn test(_vm: &mut VM, _args: &[Value]) -> Result<Option<Value>, RuntimeError> {
+    return Ok(Some(Value::Int(0)));
 }
 
 #[allow(dead_code)]
@@ -30,7 +44,7 @@ pub struct RuntimeMethod {
     pub max_stack: usize,
     pub max_locals: usize,
 
-    pub code: Rc<[u8]>,
+    pub body: MethodBody,
 
     pub exception_handlers: Vec<RuntimeExceptionHandler>,
 }
@@ -40,13 +54,14 @@ impl RuntimeMethod {
         method: &MethodInfo,
         class: ClassRef,
         constant_pool: &ConstantPool,
+        class_name: &str,
     ) -> Result<Self, RuntimeError> {
         let method_str: String = constant_pool.get_utf8(method.name_index)?;
         let descriptor: String = constant_pool.get_utf8(method.descriptor_index)?;
 
         let mut max_stack = 0;
         let mut max_locals = 0;
-        let mut code: Vec<u8> = Vec::new();
+        let mut body: MethodBody = MethodBody::Unknown;
 
         let mut found_code_attribute = false;
 
@@ -60,7 +75,7 @@ impl RuntimeMethod {
             {
                 max_stack = *stack as usize;
                 max_locals = *locals as usize;
-                code = bytecode.clone();
+                body = MethodBody::Bytecode(bytecode.clone().into());
                 found_code_attribute = true;
             }
         }
@@ -69,11 +84,22 @@ impl RuntimeMethod {
             if method.access_flags.contains(MethodAccessFlags::NATIVE) {
                 println!(
                     "Found native function {}#{}{}",
-                    class.0,
+                    class_name,
                     method_str.clone(),
                     descriptor.clone()
                 );
-            } else if !method.access_flags.contains(MethodAccessFlags::ABSTRACT) {
+
+                body = MethodBody::Native(test);
+            } else if method.access_flags.contains(MethodAccessFlags::ABSTRACT) {
+                println!(
+                    "Found abstract function {}#{}{}",
+                    class_name,
+                    method_str.clone(),
+                    descriptor.clone()
+                );
+
+                body = MethodBody::Abstract;
+            } else {
                 return Err(RuntimeError::Internal(InternalError::NoCodeInMethod {
                     method: method_str.clone(),
                 }));
@@ -112,7 +138,7 @@ impl RuntimeMethod {
             max_stack: max_stack,
             max_locals: max_locals,
 
-            code: code.into(),
+            body: body,
             exception_handlers,
         })
     }

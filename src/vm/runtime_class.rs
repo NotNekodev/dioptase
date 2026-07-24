@@ -41,7 +41,7 @@ impl RuntimeClass {
             .constant_pool
             .get_class_name(class_file.this_class)?;
 
-        let mut runtime_class = RuntimeClass::new(name, super_class);
+        let mut runtime_class = RuntimeClass::new(name.clone(), super_class);
 
         runtime_class.constant_pool = class_file.constant_pool.clone();
 
@@ -51,10 +51,12 @@ impl RuntimeClass {
         runtime_class.static_fields = static_fields;
 
         for method in class_file.methods.iter() {
+            let name = name.clone();
             runtime_class.methods.push(RuntimeMethod::from_method_info(
                 method,
                 class_ref,
                 &class_file.constant_pool,
+                name.as_str(),
             )?);
         }
 

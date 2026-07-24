@@ -178,7 +178,6 @@ impl<'a> TestFixture<'a> {
             .arg("--cp")
             .arg(&combined_cp)
             .arg(&self.entry_class)
-            .arg("--no-rt")
             .arg("--no-ext")
             .status()?;
 
