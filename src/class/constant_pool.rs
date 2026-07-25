@@ -33,7 +33,17 @@ pub enum ConstantPoolEntry {
         name_index: u16,
         descriptor_index: u16,
     },
-
+    MethodHandle {
+        reference_kind: u8,
+        reference_index: u16,
+    },
+    MethodType {
+        descriptor_index: u16,
+    },
+    InvokeDynamic {
+        bootstrap_method_attr_index: u16,
+        name_and_type_index: u16,
+    },
     Integer(i32),
     Float(f32),
     Long(i64),
@@ -137,6 +147,29 @@ impl ConstantPool {
                     ConstantPoolEntry::NameAndType {
                         name_index,
                         descriptor_index,
+                    }
+                }
+
+                15 => {
+                    let reference_kind = reader.read_u8()?;
+                    let reference_index = reader.read_u16()?;
+                    ConstantPoolEntry::MethodHandle {
+                        reference_kind,
+                        reference_index,
+                    }
+                }
+
+                16 => {
+                    let descriptor_index = reader.read_u16()?;
+                    ConstantPoolEntry::MethodType { descriptor_index }
+                }
+
+                18 => {
+                    let bootstrap_method_attr_index = reader.read_u16()?;
+                    let name_and_type_index = reader.read_u16()?;
+                    ConstantPoolEntry::InvokeDynamic {
+                        bootstrap_method_attr_index,
+                        name_and_type_index,
                     }
                 }
 
