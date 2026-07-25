@@ -17,6 +17,14 @@ pub struct LineNumberTableEntry {
 }
 
 #[allow(dead_code)]
+pub struct InnerClassEntry {
+    pub inner_class_info_index: u16,
+    pub outer_class_info_index: u16,
+    pub inner_name_index: u16,
+    pub inner_class_access_flags: u16,
+}
+
+#[allow(dead_code)]
 pub enum Attribute {
     ConstantValue {
         constantvalue_index: u16,
@@ -36,6 +44,9 @@ pub enum Attribute {
     },
     StackMapTable {
         entries: Vec<StackMapFrame>,
+    },
+    InnerClasses {
+        classes: Vec<InnerClassEntry>,
     },
     Signature {
         signature_idx: u16,
@@ -164,6 +175,26 @@ impl Attribute {
                 }
 
                 return Ok(Self::Exceptions { exceptions });
+            }
+            "InnerClasses" => {
+                let number_of_classes = reader.read_u16()?;
+                let mut classes = Vec::with_capacity(number_of_classes as usize);
+
+                for _ in 0..number_of_classes {
+                    let inner_class_info_index = reader.read_u16()?;
+                    let outer_class_info_index = reader.read_u16()?;
+                    let inner_name_index = reader.read_u16()?;
+                    let inner_class_access_flags = reader.read_u16()?;
+
+                    classes.push(InnerClassEntry {
+                        inner_class_info_index,
+                        outer_class_info_index,
+                        inner_name_index,
+                        inner_class_access_flags,
+                    });
+                }
+
+                return Ok(Self::InnerClasses { classes });
             }
             _ => {
                 return Err(Box::new(std::io::Error::new(
