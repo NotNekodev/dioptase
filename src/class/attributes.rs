@@ -150,12 +150,6 @@ impl Attribute {
             }
             "Signature" => {
                 let signature_idx = reader.read_u16()?;
-
-                println!(
-                    "Signature: {}",
-                    class_file.constant_pool.get_utf8(signature_idx)?
-                );
-
                 return Ok(Self::Signature { signature_idx });
             }
             "Exceptions" => {
@@ -165,12 +159,6 @@ impl Attribute {
 
                 for i in 0..exception_count {
                     let index = reader.read_u16()?;
-                    println!(
-                        "Exception #{}: {}",
-                        i,
-                        class_file.constant_pool.get_class_name(index)?
-                    );
-
                     exceptions.push(index);
                 }
 

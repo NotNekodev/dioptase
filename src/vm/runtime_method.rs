@@ -76,22 +76,8 @@ impl RuntimeMethod {
 
         if !found_code_attribute {
             if method.access_flags.contains(MethodAccessFlags::NATIVE) {
-                println!(
-                    "Found native function {}#{}{}",
-                    class_name,
-                    method_str.clone(),
-                    descriptor.clone()
-                );
-
                 body = MethodBody::Native;
             } else if method.access_flags.contains(MethodAccessFlags::ABSTRACT) {
-                println!(
-                    "Found abstract function {}#{}{}",
-                    class_name,
-                    method_str.clone(),
-                    descriptor.clone()
-                );
-
                 body = MethodBody::Abstract;
             } else {
                 return Err(RuntimeError::Internal(InternalError::NoCodeInMethod {
