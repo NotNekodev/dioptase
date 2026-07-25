@@ -32,6 +32,8 @@ pub enum ConstantPoolEntry {
 
     Integer(i32),
     Float(f32),
+    Long(i64),
+    Double(f64),
     String {
         string_index: u16,
     },
@@ -64,10 +66,35 @@ impl ConstantPool {
                     ConstantPoolEntry::Utf8(string)
                 }
 
+                3 => {
+                    let bits = reader.read_u32()?;
+                    ConstantPoolEntry::Integer(bits as i32)
+                }
+
+                4 => {
+                    let bits = reader.read_u32()?;
+                    ConstantPoolEntry::Float(f32::from_bits(bits))
+                }
+
+                5 => {
+                    let bits = reader.read_u64()?; // you'll need a read_u64 on ClassReader — see below
+                    ConstantPoolEntry::Long(bits as i64)
+                }
+
+                6 => {
+                    let bits = reader.read_u64()?;
+                    ConstantPoolEntry::Double(f64::from_bits(bits))
+                }
+
                 7 => {
                     let name_index = reader.read_u16()?;
 
                     ConstantPoolEntry::Class { name_index }
+                }
+
+                8 => {
+                    let string_index = reader.read_u16()?;
+                    ConstantPoolEntry::String { string_index }
                 }
 
                 9 => {
@@ -100,28 +127,24 @@ impl ConstantPool {
                     }
                 }
 
-                3 => {
-                    let bits = reader.read_u32()?;
-                    ConstantPoolEntry::Integer(bits as i32)
-                }
-
-                4 => {
-                    let bits = reader.read_u32()?;
-                    ConstantPoolEntry::Float(f32::from_bits(bits))
-                }
-
-                8 => {
-                    let string_index = reader.read_u16()?;
-                    ConstantPoolEntry::String { string_index }
-                }
-
                 _ => {
                     panic!("Unknown constant pool tag {}", tag);
                 }
             };
 
+            let is_wide = matches!(
+                entry,
+                ConstantPoolEntry::Long(_) | ConstantPoolEntry::Double(_)
+            );
+
             entries.push(entry);
             i += 1;
+
+            if is_wide {
+                // JVMS §4.4.5
+                entries.push(ConstantPoolEntry::Unknown);
+                i += 1;
+            }
         }
 
         Ok(Self { entries })

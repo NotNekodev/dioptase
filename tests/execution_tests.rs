@@ -7,7 +7,7 @@ use std::{
 
 const TEST_CP: &str = "./tests/test_cp";
 
-const FIXTURES: [TestFixture; 20] = [
+const FIXTURES: [TestFixture; 21] = [
     TestFixture {
         source_path: "add_test/AddTest.java",
         entry_class: "AddTest",
@@ -128,6 +128,12 @@ const FIXTURES: [TestFixture; 20] = [
         class_path: "clinit_test",
         expected_return: 42,
     },
+    TestFixture {
+        source_path: "native_method_test/NativeMethodTest.java",
+        entry_class: "NativeMethodTest",
+        class_path: "native_method_test",
+        expected_return: 2,
+    },
 ];
 
 struct TestFixture<'a> {
@@ -179,6 +185,7 @@ impl<'a> TestFixture<'a> {
             .arg(&combined_cp)
             .arg(&self.entry_class)
             .arg("--no-ext")
+            .arg("--no-rt")
             .status()?;
 
         let res = run_output.code().ok_or(format!(

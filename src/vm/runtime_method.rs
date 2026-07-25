@@ -9,10 +9,8 @@ use crate::{
         method::{MethodAccessFlags, MethodInfo},
     },
     error::{InternalError, RuntimeError},
-    vm::{runtime_class::ClassRef, value::Value, vm::VM},
+    vm::runtime_class::ClassRef,
 };
-
-pub type NativeFunction = fn(&mut VM, &[Value]) -> Result<Option<Value>, RuntimeError>;
 
 #[derive(Clone)]
 pub struct RuntimeExceptionHandler {
@@ -25,13 +23,9 @@ pub struct RuntimeExceptionHandler {
 #[derive(Clone, Debug)]
 pub enum MethodBody {
     Bytecode(Rc<[u8]>),
-    Native(NativeFunction),
+    Native,
     Abstract,
     Unknown,
-}
-
-fn test(_vm: &mut VM, _args: &[Value]) -> Result<Option<Value>, RuntimeError> {
-    return Ok(Some(Value::Int(0)));
 }
 
 #[allow(dead_code)]
@@ -89,7 +83,7 @@ impl RuntimeMethod {
                     descriptor.clone()
                 );
 
-                body = MethodBody::Native(test);
+                body = MethodBody::Native;
             } else if method.access_flags.contains(MethodAccessFlags::ABSTRACT) {
                 println!(
                     "Found abstract function {}#{}{}",
@@ -157,5 +151,15 @@ impl RuntimeMethod {
 
     pub fn param_slot_count(&self) -> usize {
         Self::param_slot_count_from_descriptor(&self.descriptor).unwrap()
+    }
+
+    pub fn param_slot_count_with_receiver(&self) -> usize {
+        let mut slots = self.param_slot_count();
+
+        if !self.access.contains(MethodAccessFlags::STATIC) {
+            slots += 1;
+        }
+
+        slots
     }
 }

@@ -10,6 +10,7 @@ use std::{env, error::Error, process::ExitCode};
 mod class;
 mod cli;
 mod error;
+mod native;
 mod vm;
 
 fn main() -> ExitCode {

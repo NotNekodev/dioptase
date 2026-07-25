@@ -1,5 +1,9 @@
 use crate::{
     error::{InternalError, RuntimeError},
+    native::{
+        native_context::NativeContext,
+        native_registry::{NativeMethodIdentifier, native_registry},
+    },
     vm::{
         frame::Frame,
         heap::ArrayElementType,
@@ -449,11 +453,11 @@ impl Interpreter {
                             .constant_pool
                             .get_field_ref(index)?;
                         let owner_ref = vm.resolve_class(&owner_name)?;
+
                         let slot = vm
-                            .get_class(owner_ref)?
-                            .find_field(&field_name)
-                            .ok_or(InternalError::InvalidConstantPoolEntry)?
-                            .slot;
+                            .find_instance_field(owner_ref, &field_name)?
+                            .map(|(_, slot)| slot)
+                            .ok_or(InternalError::InvalidConstantPoolEntry)?;
 
                         let value = vm.heap().get_object(objectref)?.fields[slot].clone();
 
@@ -479,11 +483,11 @@ impl Interpreter {
                             .constant_pool
                             .get_field_ref(index)?;
                         let owner_ref = vm.resolve_class(&owner_name)?;
+
                         let slot = vm
-                            .get_class(owner_ref)?
-                            .find_field(&field_name)
-                            .ok_or(InternalError::InvalidConstantPoolEntry)?
-                            .slot;
+                            .find_instance_field(owner_ref, &field_name)?
+                            .map(|(_, slot)| slot)
+                            .ok_or(InternalError::InvalidConstantPoolEntry)?;
 
                         vm.heap_mut().get_object_mut(objectref)?.fields[slot] = value;
                     }
@@ -595,7 +599,8 @@ impl Interpreter {
                             .constant_pool
                             .get_class_name(index)?;
                         let target_class_ref = vm.resolve_class(&class_name)?;
-                        let slot_count = vm.get_class(target_class_ref)?.instance_slot_count();
+                        let slot_count =
+                            vm.get_class(target_class_ref)?.total_instance_slot_count();
                         let obj_ref = vm.heap_mut().allocate_object(target_class_ref, slot_count);
 
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
@@ -1344,7 +1349,63 @@ impl Interpreter {
                 return Ok(StepOutcome::Continue);
             }
 
-            MethodBody::Native(_func) => return Ok(StepOutcome::Return(Value::Int(0))),
+            MethodBody::Native => {
+                let (class_ref, method_index) = {
+                    let frame = vm.get_thread(thread_ref)?.current_frame().ok_or(
+                        InternalError::NoCurrentFrame {
+                            thread_id: thread_ref.0,
+                        },
+                    )?;
+
+                    (frame.class, frame.method_index)
+                };
+
+                let (method_name, descriptor, receiver_slots) = {
+                    let method = vm.get_method(class_ref, method_index)?;
+
+                    (
+                        method.name.clone(),
+                        method.descriptor.clone(),
+                        method.param_slot_count_with_receiver(),
+                    )
+                };
+
+                let class_name = vm.get_class(class_ref)?.name.clone();
+
+                let id: NativeMethodIdentifier =
+                    NativeMethodIdentifier::new(class_name, method_name, descriptor);
+
+                let native = native_registry().lock().unwrap().get(&id).ok_or_else(|| {
+                    vm.throw(
+                        "java/lang/UnsatisfiedLinkError",
+                        Some(&format!(
+                            "{}.{}{}",
+                            id.class_name, id.method_name, id.descriptor,
+                        )),
+                    )
+                })?;
+
+                let args = {
+                    let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                    frame.locals[..receiver_slots].to_vec()
+                };
+
+                let mut ctx = NativeContext::new(vm, thread_ref);
+
+                let result = native(&mut ctx, &args)?;
+
+                ctx.vm_mut().get_thread(thread_ref)?.pop_frame();
+
+                if let Some(caller) = ctx.vm_mut().get_thread(thread_ref)?.current_frame() {
+                    if let Some(value) = result {
+                        caller.operand_stack.push(value);
+                    }
+
+                    return Ok(StepOutcome::Continue);
+                }
+
+                return Ok(StepOutcome::Return(result.unwrap_or(Value::Empty)));
+            }
 
             MethodBody::Abstract => {
                 return Err(vm.throw(

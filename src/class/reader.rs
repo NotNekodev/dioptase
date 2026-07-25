@@ -43,6 +43,12 @@ impl ClassReader {
         Ok(u32::from_be_bytes(bytes))
     }
 
+    pub fn read_u64(&mut self) -> Result<u64, TryFromSliceError> {
+        let bytes: [u8; 8] = self.data[self.pos..self.pos + 8].try_into()?;
+        self.pos += 8;
+        Ok(u64::from_be_bytes(bytes))
+    }
+
     pub fn read_bytes(&mut self, len: usize) -> Result<Vec<u8>, TryFromSliceError> {
         let bytes = self.data[self.pos..self.pos + len].to_vec();
         self.pos += len;

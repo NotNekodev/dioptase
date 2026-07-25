@@ -9,7 +9,6 @@ use crate::{
         heap::Heap,
         interpreter::Interpreter,
         runtime_class::{ClassRef, RuntimeClass},
-        runtime_field::RuntimeField,
         runtime_method::RuntimeMethod,
         thread::{Thread, ThreadRef},
         value::{ObjectRef, Value},
@@ -174,10 +173,15 @@ impl VM {
             Some(self.resolve_class(&super_name)?)
         };
 
+        let field_base_slot = match super_class {
+            Some(sc) => self.get_class(sc)?.total_instance_slot_count(),
+            None => 0,
+        };
+
         let id = self.classes.len();
         let class_ref = ClassRef(id);
-
-        let runtime_class = RuntimeClass::from_class_file(&class_file, super_class, class_ref)?;
+        let runtime_class =
+            RuntimeClass::from_class_file(&class_file, super_class, class_ref, field_base_slot)?;
 
         self.classes_by_name
             .insert(runtime_class.name.clone(), class_ref);
@@ -268,65 +272,22 @@ impl VM {
         }))
     }
 
-    fn register_synthetic_class(&mut self, name: &str, super_class: Option<ClassRef>) -> ClassRef {
-        let mut class = RuntimeClass::new(name.to_string(), super_class);
-        class.instance_fields.push(RuntimeField {
-            name: "message".to_string(),
-            descriptor: "Ljava/lang/String;".to_string(),
-            slot: 0,
-        });
-        self.add_class(class)
-    }
-
-    fn ensure_exceptions_registered(&mut self) -> Result<(), RuntimeError> {
-        if self.exceptions_registered {
-            return Ok(());
-        }
-        let object_ref = self.resolve_class("java/lang/Object")?;
-
-        let throwable = self.register_synthetic_class("java/lang/Throwable", Some(object_ref));
-        let exception = self.register_synthetic_class("java/lang/Exception", Some(throwable));
-        let runtime_exception =
-            self.register_synthetic_class("java/lang/RuntimeException", Some(exception));
-        let _error = self.register_synthetic_class("java/lang/Error", Some(throwable));
-
-        for name in [
-            "java/lang/NullPointerException",
-            "java/lang/ArrayIndexOutOfBoundsException",
-            "java/lang/ArrayStoreException",
-            "java/lang/NegativeArraySizeException",
-            "java/lang/ArithmeticException",
-            "java/lang/ClassCastException",
-        ] {
-            self.register_synthetic_class(name, Some(runtime_exception));
-        }
-
-        self.exceptions_registered = true;
-        Ok(())
-    }
-
     pub fn throw(&mut self, class_name: &str, message: Option<&str>) -> RuntimeError {
-        if let Err(e) = self.ensure_exceptions_registered() {
-            return e;
-        }
         let class_ref = match self.resolve_class(class_name) {
             Ok(c) => c,
             Err(e) => return e,
         };
         let slot_count = self
             .get_class(class_ref)
-            .map(|c| c.instance_slot_count())
+            .map(|c| c.total_instance_slot_count())
             .unwrap_or(1);
         let obj_ref = self.heap_mut().allocate_object(class_ref, slot_count);
 
         if let Some(msg) = message {
-            if let Ok(class) = self.get_class(class_ref) {
-                if let Some(field) = class.find_field("message") {
-                    let slot = field.slot;
-                    let str_ref = self.heap_mut().allocate_string(msg.to_string());
-                    if let Ok(obj) = self.heap_mut().get_object_mut(obj_ref) {
-                        obj.fields[slot] = Value::Reference(Some(str_ref));
-                    }
+            if let Ok(Some((_, slot))) = self.find_instance_field(class_ref, "detailMessage") {
+                let str_ref = self.heap_mut().allocate_string(msg.to_string());
+                if let Ok(obj) = self.heap_mut().get_object_mut(obj_ref) {
+                    obj.fields[slot] = Value::Reference(Some(str_ref));
                 }
             }
         }
@@ -342,13 +303,37 @@ impl VM {
             .get_class(obj.class)
             .map(|c| c.name.clone())
             .unwrap_or_default();
-        let message = obj.fields.first().and_then(|v| match v {
-            Value::Reference(Some(r)) => self.heap().get_string(*r).ok().map(|s| s.to_string()),
-            _ => None,
-        });
+
+        let message = self
+            .find_instance_field(obj.class, "detailMessage")
+            .ok()
+            .flatten()
+            .and_then(|(_, slot)| match obj.fields.get(slot) {
+                Some(Value::Reference(Some(r))) => {
+                    self.heap().get_string(*r).ok().map(|s| s.to_string())
+                }
+                _ => None,
+            });
+
         match message {
             Some(m) => format!("{}: {}", class_name.replace('/', "."), m),
             None => class_name.replace('/', "."),
         }
+    }
+
+    pub fn find_instance_field(
+        &self,
+        start: ClassRef,
+        name: &str,
+    ) -> Result<Option<(ClassRef, usize)>, RuntimeError> {
+        let mut current = Some(start);
+        while let Some(c) = current {
+            let class = self.get_class(c)?;
+            if let Some(f) = class.instance_fields.iter().find(|f| f.name == name) {
+                return Ok(Some((c, f.slot)));
+            }
+            current = class.super_class;
+        }
+        Ok(None)
     }
 }

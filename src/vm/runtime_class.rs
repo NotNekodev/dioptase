@@ -15,6 +15,7 @@ pub struct RuntimeClass {
     pub constant_pool: ConstantPool,
     pub instance_fields: Vec<RuntimeField>,
     pub static_fields: Vec<RuntimeField>,
+    pub field_base_slot: usize,
 }
 
 #[allow(dead_code)]
@@ -29,6 +30,7 @@ impl RuntimeClass {
             },
             instance_fields: Vec::new(),
             static_fields: Vec::new(),
+            field_base_slot: 0,
         }
     }
 
@@ -36,6 +38,7 @@ impl RuntimeClass {
         class_file: &ClassFile,
         super_class: Option<ClassRef>,
         class_ref: ClassRef,
+        field_base_slot: usize,
     ) -> Result<Self, RuntimeError> {
         let name = class_file
             .constant_pool
@@ -45,8 +48,11 @@ impl RuntimeClass {
 
         runtime_class.constant_pool = class_file.constant_pool.clone();
 
-        let (instance_fields, static_fields) =
-            RuntimeField::partition_field_infos(&class_file.fields, &class_file.constant_pool)?;
+        let (instance_fields, static_fields) = RuntimeField::partition_field_infos(
+            &class_file.fields,
+            &class_file.constant_pool,
+            field_base_slot,
+        )?;
         runtime_class.instance_fields = instance_fields;
         runtime_class.static_fields = static_fields;
 
@@ -101,5 +107,20 @@ impl RuntimeClass {
                 }
             })
             .sum()
+    }
+
+    pub fn total_instance_slot_count(&self) -> usize {
+        self.field_base_slot
+            + self
+                .instance_fields
+                .iter()
+                .map(|f| {
+                    if f.descriptor == "J" || f.descriptor == "D" {
+                        2
+                    } else {
+                        1
+                    }
+                })
+                .sum::<usize>()
     }
 }
