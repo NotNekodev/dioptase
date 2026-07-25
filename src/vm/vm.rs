@@ -25,6 +25,7 @@ pub struct VM {
     heap: Heap,
     static_storage: HashMap<ClassRef, ObjectRef>,
     exceptions_registered: bool,
+    class_objects: HashMap<ClassRef, ObjectRef>,
 }
 
 #[allow(dead_code)]
@@ -39,6 +40,7 @@ impl VM {
             heap: Heap::new(),
             static_storage: HashMap::new(),
             exceptions_registered: false,
+            class_objects: HashMap::new(),
         }
     }
 
@@ -366,5 +368,14 @@ impl VM {
             current = class.super_class;
         }
         Ok(None)
+    }
+
+    pub fn class_object_for(&mut self, class_ref: ClassRef) -> ObjectRef {
+        if let Some(existing) = self.class_objects.get(&class_ref) {
+            return *existing;
+        }
+        let obj_ref = self.heap_mut().allocate_class_object(class_ref);
+        self.class_objects.insert(class_ref, obj_ref);
+        obj_ref
     }
 }

@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::{
-    error::RuntimeError,
+    error::{InternalError, RuntimeError},
     vm::{
         runtime_class::ClassRef,
         value::{ObjectRef, Value},
@@ -64,6 +64,7 @@ pub enum HeapEntry {
     Object(Object),
     Array(ArrayObject),
     Str(Rc<str>),
+    ClassObject(ClassRef),
 }
 
 #[allow(dead_code)]
@@ -170,6 +171,19 @@ impl Heap {
             _ => Err(RuntimeError::Internal(
                 crate::error::InternalError::InvalidType,
             )),
+        }
+    }
+
+    pub fn allocate_class_object(&mut self, class: ClassRef) -> ObjectRef {
+        let id = self.entries.len();
+        self.entries.push(HeapEntry::ClassObject(class));
+        ObjectRef(id)
+    }
+
+    pub fn get_class_object(&self, r: ObjectRef) -> Result<ClassRef, RuntimeError> {
+        match &self.entries[r.0] {
+            HeapEntry::ClassObject(c) => Ok(*c),
+            _ => Err(InternalError::InvalidType.into()),
         }
     }
 }

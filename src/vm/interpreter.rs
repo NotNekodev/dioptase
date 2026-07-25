@@ -1276,6 +1276,17 @@ impl Interpreter {
                                     .get_utf8(string_index)?;
                                 Value::Reference(Some(vm.heap_mut().allocate_string(s)))
                             }
+                            crate::class::constant_pool::ConstantPoolEntry::Class {
+                                name_index,
+                            } => {
+                                let class_name = vm
+                                    .get_class(frame_class)?
+                                    .constant_pool
+                                    .get_utf8(name_index)?;
+                                let target_class_ref = vm.resolve_class(&class_name)?;
+                                let class_obj_ref = vm.class_object_for(target_class_ref);
+                                Value::Reference(Some(class_obj_ref))
+                            }
                             other => {
                                 return Err(RuntimeError::Internal(
                                     InternalError::InvalidConstantPoolEntry {
@@ -1322,6 +1333,17 @@ impl Interpreter {
                                     .constant_pool
                                     .get_utf8(string_index)?;
                                 Value::Reference(Some(vm.heap_mut().allocate_string(s)))
+                            }
+                            crate::class::constant_pool::ConstantPoolEntry::Class {
+                                name_index,
+                            } => {
+                                let class_name = vm
+                                    .get_class(frame_class)?
+                                    .constant_pool
+                                    .get_utf8(name_index)?;
+                                let target_class_ref = vm.resolve_class(&class_name)?;
+                                let class_obj_ref = vm.class_object_for(target_class_ref);
+                                Value::Reference(Some(class_obj_ref))
                             }
                             other => {
                                 return Err(RuntimeError::Internal(
