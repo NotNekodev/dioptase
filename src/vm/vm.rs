@@ -173,6 +173,12 @@ impl VM {
             Some(self.resolve_class(&super_name)?)
         };
 
+        let mut interfaces = Vec::with_capacity(class_file.interfaces.len());
+        for &iface_index in &class_file.interfaces {
+            let iface_name = class_file.constant_pool.get_class_name(iface_index)?;
+            interfaces.push(self.resolve_class(&iface_name)?);
+        }
+
         let field_base_slot = match super_class {
             Some(sc) => self.get_class(sc)?.total_instance_slot_count(),
             None => 0,
@@ -180,8 +186,13 @@ impl VM {
 
         let id = self.classes.len();
         let class_ref = ClassRef(id);
-        let runtime_class =
-            RuntimeClass::from_class_file(&class_file, super_class, class_ref, field_base_slot)?;
+        let runtime_class = RuntimeClass::from_class_file(
+            &class_file,
+            super_class,
+            class_ref,
+            field_base_slot,
+            interfaces,
+        )?;
 
         self.classes_by_name
             .insert(runtime_class.name.clone(), class_ref);
@@ -229,7 +240,6 @@ impl VM {
         &mut self.heap
     }
 
-    // TODO: expand with interfaces
     pub fn is_assignable(&self, from: ClassRef, to: ClassRef) -> Result<bool, RuntimeError> {
         if from == to {
             return Ok(true);
@@ -237,12 +247,33 @@ impl VM {
 
         let mut current = Some(from);
 
-        while let Some(class) = current {
-            if class == to {
+        while let Some(class_ref) = current {
+            if class_ref == to {
                 return Ok(true);
             }
+            let class = self.get_class(class_ref)?;
+            for &iface in &class.interfaces {
+                if self.interface_extends(iface, to)? {
+                    return Ok(true);
+                }
+            }
+            current = class.super_class;
+        }
 
-            current = self.get_class(class)?.super_class;
+        Ok(false)
+    }
+
+    fn interface_extends(&self, iface: ClassRef, target: ClassRef) -> Result<bool, RuntimeError> {
+        if iface == target {
+            return Ok(true);
+        }
+
+        let class = self.get_class(iface)?;
+
+        for &super_iface in &class.interfaces {
+            if self.interface_extends(super_iface, target)? {
+                return Ok(true);
+            }
         }
 
         Ok(false)

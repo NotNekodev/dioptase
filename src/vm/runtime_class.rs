@@ -16,6 +16,7 @@ pub struct RuntimeClass {
     pub instance_fields: Vec<RuntimeField>,
     pub static_fields: Vec<RuntimeField>,
     pub field_base_slot: usize,
+    pub interfaces: Vec<ClassRef>,
 }
 
 #[allow(dead_code)]
@@ -31,6 +32,7 @@ impl RuntimeClass {
             instance_fields: Vec::new(),
             static_fields: Vec::new(),
             field_base_slot: 0,
+            interfaces: Vec::new(),
         }
     }
 
@@ -39,6 +41,7 @@ impl RuntimeClass {
         super_class: Option<ClassRef>,
         class_ref: ClassRef,
         field_base_slot: usize,
+        interfaces: Vec<ClassRef>,
     ) -> Result<Self, RuntimeError> {
         let name = class_file
             .constant_pool
@@ -65,6 +68,8 @@ impl RuntimeClass {
                 name.as_str(),
             )?);
         }
+
+        runtime_class.interfaces = interfaces;
 
         Ok(runtime_class)
     }

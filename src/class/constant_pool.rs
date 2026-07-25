@@ -25,6 +25,10 @@ pub enum ConstantPoolEntry {
         class_index: u16,
         name_and_type_index: u16,
     },
+    InterfaceMethodRef {
+        class_index: u16,
+        name_and_type_index: u16,
+    },
     NameAndType {
         name_index: u16,
         descriptor_index: u16,
@@ -77,7 +81,7 @@ impl ConstantPool {
                 }
 
                 5 => {
-                    let bits = reader.read_u64()?; // you'll need a read_u64 on ClassReader — see below
+                    let bits = reader.read_u64()?;
                     ConstantPoolEntry::Long(bits as i64)
                 }
 
@@ -112,6 +116,15 @@ impl ConstantPool {
                     let name_and_type_index = reader.read_u16()?;
 
                     ConstantPoolEntry::MethodRef {
+                        class_index,
+                        name_and_type_index,
+                    }
+                }
+
+                11 => {
+                    let class_index = reader.read_u16()?;
+                    let name_and_type_index = reader.read_u16()?;
+                    ConstantPoolEntry::InterfaceMethodRef {
                         class_index,
                         name_and_type_index,
                     }
@@ -209,6 +222,25 @@ impl ConstantPool {
     pub fn get_field_ref(&self, index: u16) -> Result<(String, String, String), RuntimeError> {
         match self.entries.get(index as usize) {
             Some(ConstantPoolEntry::FieldRef {
+                class_index,
+                name_and_type_index,
+            }) => {
+                let class_name = self.get_class_name(*class_index)?;
+                let (name, descriptor) = self.get_name_and_type(*name_and_type_index)?;
+                Ok((class_name, name, descriptor))
+            }
+            _ => Err(RuntimeError::Internal(
+                InternalError::InvalidConstantPoolEntry,
+            )),
+        }
+    }
+
+    pub fn get_interface_method_ref(
+        &self,
+        index: u16,
+    ) -> Result<(String, String, String), RuntimeError> {
+        match self.entries.get(index as usize) {
+            Some(ConstantPoolEntry::InterfaceMethodRef {
                 class_index,
                 name_and_type_index,
             }) => {

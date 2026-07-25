@@ -78,6 +78,7 @@ pub enum Opcode {
     InvokeVirtual = 0xb6,
     InvokeSpecial = 0xb7,
     InvokeStatic = 0xb8,
+    InvokeInterface = 0xb9,
 
     New = 0xbb,
     NewArray = 0xbc,
@@ -169,6 +170,7 @@ impl TryFrom<u8> for Opcode {
             0xb6 => Ok(Self::InvokeVirtual),
             0xb7 => Ok(Self::InvokeSpecial),
             0xb8 => Ok(Self::InvokeStatic),
+            0xb9 => Ok(Self::InvokeInterface),
 
             0xbb => Ok(Self::New),
             0xbc => Ok(Self::NewArray),

@@ -1344,6 +1344,64 @@ impl Interpreter {
 
                         frame.operand_stack.push(Value::Int(res));
                     }
+
+                    Opcode::InvokeInterface => {
+                        let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
+                        frame.pc += 2;
+
+                        let _count = code[frame.pc];
+                        frame.pc += 1;
+
+                        let _reserved = code[frame.pc];
+                        frame.pc += 1;
+
+                        let (_iface_name, method_name, descriptor) = vm
+                            .get_class(frame_class)?
+                            .constant_pool
+                            .get_interface_method_ref(index)?;
+                        let param_slots =
+                               crate::vm::runtime_method::RuntimeMethod::param_slot_count_from_descriptor(&descriptor)?;
+
+                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+
+                        let mut args = Vec::with_capacity(param_slots);
+                        for _ in 0..param_slots {
+                            args.push(
+                                frame
+                                    .operand_stack
+                                    .pop()
+                                    .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?,
+                            );
+                        }
+                        args.reverse();
+
+                        let objectref = match frame.operand_stack.pop() {
+                            Some(Value::Reference(Some(r))) => r,
+                            Some(Value::Reference(None)) => {
+                                return Err(vm.throw(
+                                    "java/lang/NullPointerException",
+                                    Some("objectref on invokeinterface is null"),
+                                ));
+                            }
+                            _ => return Err(RuntimeError::Internal(InternalError::InvalidType)),
+                        };
+
+                        let obj_class = vm.heap().get_object(objectref)?.class;
+                        let (resolved_class, method_idx) =
+                            vm.resolve_virtual_method(obj_class, &method_name, &descriptor)?;
+                        let (max_locals, max_stack) = {
+                            let m = &vm.get_class(resolved_class)?.methods[method_idx];
+                            (m.max_locals, m.max_stack)
+                        };
+
+                        let mut new_frame =
+                            Frame::new(max_locals, max_stack, resolved_class, method_idx);
+                        new_frame.locals[0] = Value::Reference(Some(objectref));
+                        for (i, arg) in args.into_iter().enumerate() {
+                            new_frame.locals[i + 1] = arg;
+                        }
+                        vm.get_thread(thread_ref)?.push_frame(new_frame);
+                    }
                 }
 
                 return Ok(StepOutcome::Continue);

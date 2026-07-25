@@ -185,7 +185,6 @@ impl<'a> TestFixture<'a> {
             .arg(&combined_cp)
             .arg(&self.entry_class)
             .arg("--no-ext")
-            .arg("--no-rt")
             .status()?;
 
         let res = run_output.code().ok_or(format!(
