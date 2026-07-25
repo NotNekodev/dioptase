@@ -557,6 +557,8 @@ impl Interpreter {
 
                         let target_class_ref = vm.resolve_class(&target_class_name)?;
 
+                        vm.ensure_class_initialized(target_class_ref)?;
+
                         let (target_method_idx, max_locals, max_stack, argument_count) = {
                             let target_class = vm.get_class(target_class_ref)?;
                             let idx = target_class.find_method(&method_name, &descriptor).ok_or(
@@ -599,6 +601,7 @@ impl Interpreter {
                             .constant_pool
                             .get_class_name(index)?;
                         let target_class_ref = vm.resolve_class(&class_name)?;
+                        vm.ensure_class_initialized(target_class_ref)?;
                         let slot_count =
                             vm.get_class(target_class_ref)?.total_instance_slot_count();
                         let obj_ref = vm.heap_mut().allocate_object(target_class_ref, slot_count);
@@ -1153,6 +1156,8 @@ impl Interpreter {
 
                         let owner_ref = vm.resolve_class(&owner_name)?;
 
+                        vm.ensure_class_initialized(owner_ref)?;
+
                         let slot = vm
                             .get_class(owner_ref)?
                             .find_static_field(&field_name)
@@ -1180,6 +1185,8 @@ impl Interpreter {
                             .get_field_ref(index)?;
 
                         let owner_ref = vm.resolve_class(&owner_name)?;
+
+                        vm.ensure_class_initialized(owner_ref)?;
 
                         let slot = vm
                             .get_class(owner_ref)?

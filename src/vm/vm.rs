@@ -133,7 +133,7 @@ impl VM {
         }
     }
 
-    fn ensure_class_initialized(&mut self, class_ref: ClassRef) -> Result<(), RuntimeError> {
+    pub fn ensure_class_initialized(&mut self, class_ref: ClassRef) -> Result<(), RuntimeError> {
         if self.static_storage.contains_key(&class_ref) {
             return Ok(());
         }
@@ -199,8 +199,6 @@ impl VM {
         self.classes_by_name
             .insert(runtime_class.name.clone(), class_ref);
         self.classes.push(runtime_class);
-
-        self.ensure_class_initialized(class_ref)?;
 
         Ok(class_ref)
     }
