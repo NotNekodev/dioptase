@@ -457,7 +457,7 @@ impl Interpreter {
                         let slot = vm
                             .find_instance_field(owner_ref, &field_name)?
                             .map(|(_, slot)| slot)
-                            .ok_or(InternalError::InvalidConstantPoolEntry)?;
+                            .ok_or(InternalError::InvalidSlot)?;
 
                         let value = vm.heap().get_object(objectref)?.fields[slot].clone();
 
@@ -487,7 +487,7 @@ impl Interpreter {
                         let slot = vm
                             .find_instance_field(owner_ref, &field_name)?
                             .map(|(_, slot)| slot)
-                            .ok_or(InternalError::InvalidConstantPoolEntry)?;
+                            .ok_or(InternalError::InvalidSlot)?;
 
                         vm.heap_mut().get_object_mut(objectref)?.fields[slot] = value;
                     }
@@ -1156,7 +1156,7 @@ impl Interpreter {
                         let slot = vm
                             .get_class(owner_ref)?
                             .find_static_field(&field_name)
-                            .ok_or(InternalError::InvalidConstantPoolEntry)?
+                            .ok_or(InternalError::InvalidSlot)?
                             .slot;
                         let storage_ref = vm.static_storage_ref(owner_ref)?;
                         let value = vm.heap().get_object(storage_ref)?.fields[slot].clone();
@@ -1184,7 +1184,7 @@ impl Interpreter {
                         let slot = vm
                             .get_class(owner_ref)?
                             .find_static_field(&field_name)
-                            .ok_or(InternalError::InvalidConstantPoolEntry)?
+                            .ok_or(InternalError::InvalidSlot)?
                             .slot;
                         let storage_ref = vm.static_storage_ref(owner_ref)?;
                         vm.heap_mut().get_object_mut(storage_ref)?.fields[slot] = value;
@@ -1254,7 +1254,11 @@ impl Interpreter {
                             .entries
                             .get(index as usize)
                             .cloned()
-                            .ok_or(InternalError::InvalidConstantPoolEntry)?;
+                            .ok_or(InternalError::InvalidConstantPoolEntry {
+                                index,
+                                expected: "Any constant pool data type",
+                                found: "out of bounds".to_string(),
+                            })?;
 
                         let value = match entry {
                             crate::class::constant_pool::ConstantPoolEntry::Integer(i) => {
@@ -1272,9 +1276,13 @@ impl Interpreter {
                                     .get_utf8(string_index)?;
                                 Value::Reference(Some(vm.heap_mut().allocate_string(s)))
                             }
-                            _ => {
+                            other => {
                                 return Err(RuntimeError::Internal(
-                                    InternalError::InvalidConstantPoolEntry,
+                                    InternalError::InvalidConstantPoolEntry {
+                                        index,
+                                        expected: "Any data type",
+                                        found: format!("{:?}", other),
+                                    },
                                 ));
                             }
                         };
@@ -1293,7 +1301,11 @@ impl Interpreter {
                             .entries
                             .get(index as usize)
                             .cloned()
-                            .ok_or(InternalError::InvalidConstantPoolEntry)?;
+                            .ok_or(InternalError::InvalidConstantPoolEntry {
+                                index,
+                                expected: "Any constant pool data type",
+                                found: "out of bounds".to_string(),
+                            })?;
 
                         let value = match entry {
                             crate::class::constant_pool::ConstantPoolEntry::Integer(i) => {
@@ -1311,9 +1323,13 @@ impl Interpreter {
                                     .get_utf8(string_index)?;
                                 Value::Reference(Some(vm.heap_mut().allocate_string(s)))
                             }
-                            _ => {
+                            other => {
                                 return Err(RuntimeError::Internal(
-                                    InternalError::InvalidConstantPoolEntry,
+                                    InternalError::InvalidConstantPoolEntry {
+                                        index,
+                                        expected: "Any data type",
+                                        found: format!("{:?}", other),
+                                    },
                                 ));
                             }
                         };

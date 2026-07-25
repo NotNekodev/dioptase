@@ -166,9 +166,18 @@ impl ConstantPool {
     pub fn get_utf8(&self, index: u16) -> Result<String, RuntimeError> {
         match self.entries.get(index as usize) {
             Some(ConstantPoolEntry::Utf8(s)) => Ok(s.clone()),
-            _ => Err(RuntimeError::Internal(
-                InternalError::InvalidConstantPoolEntry,
-            )),
+            Some(other) => Err(InternalError::InvalidConstantPoolEntry {
+                index,
+                expected: "Utf8",
+                found: format!("{:?}", other),
+            }
+            .into()),
+            None => Err(InternalError::InvalidConstantPoolEntry {
+                index,
+                expected: "Utf8",
+                found: "out of bounds".to_string(),
+            }
+            .into()),
         }
     }
 
@@ -177,14 +186,21 @@ impl ConstantPool {
             .entries
             .get(index as usize)
             .ok_or(RuntimeError::Internal(
-                InternalError::InvalidConstantPoolEntry,
+                InternalError::InvalidConstantPoolEntry {
+                    index,
+                    expected: "Class",
+                    found: "out of bounds".to_string(),
+                },
             ))?;
 
         match entry {
             ConstantPoolEntry::Class { name_index } => self.get_utf8(*name_index),
-            _ => Err(RuntimeError::Internal(
-                InternalError::InvalidConstantPoolEntry,
-            )),
+            other => Err(InternalError::InvalidConstantPoolEntry {
+                index: index,
+                expected: "Class",
+                found: format!("{:?}", other),
+            }
+            .into()),
         }
     }
 
@@ -197,9 +213,18 @@ impl ConstantPool {
                 self.get_utf8(*name_index)?,
                 self.get_utf8(*descriptor_index)?,
             )),
-            _ => Err(RuntimeError::Internal(
-                InternalError::InvalidConstantPoolEntry,
-            )),
+            Some(other) => Err(InternalError::InvalidConstantPoolEntry {
+                index,
+                expected: "NameAndType",
+                found: format!("{:?}", other),
+            }
+            .into()),
+            None => Err(InternalError::InvalidConstantPoolEntry {
+                index,
+                expected: "NameAndType",
+                found: "out of bounds".to_string(),
+            }
+            .into()),
         }
     }
 
@@ -213,9 +238,18 @@ impl ConstantPool {
                 let (name, descriptor) = self.get_name_and_type(*name_and_type_index)?;
                 Ok((class_name, name, descriptor))
             }
-            _ => Err(RuntimeError::Internal(
-                InternalError::InvalidConstantPoolEntry,
-            )),
+            Some(other) => Err(InternalError::InvalidConstantPoolEntry {
+                index,
+                expected: "MethodRef",
+                found: format!("{:?}", other),
+            }
+            .into()),
+            None => Err(InternalError::InvalidConstantPoolEntry {
+                index,
+                expected: "MethodRef",
+                found: "out of bounds".to_string(),
+            }
+            .into()),
         }
     }
 
@@ -229,9 +263,18 @@ impl ConstantPool {
                 let (name, descriptor) = self.get_name_and_type(*name_and_type_index)?;
                 Ok((class_name, name, descriptor))
             }
-            _ => Err(RuntimeError::Internal(
-                InternalError::InvalidConstantPoolEntry,
-            )),
+            Some(other) => Err(InternalError::InvalidConstantPoolEntry {
+                index,
+                expected: "FieldRef",
+                found: format!("{:?}", other),
+            }
+            .into()),
+            None => Err(InternalError::InvalidConstantPoolEntry {
+                index,
+                expected: "Utf8",
+                found: "out of bounds".to_string(),
+            }
+            .into()),
         }
     }
 
@@ -248,9 +291,18 @@ impl ConstantPool {
                 let (name, descriptor) = self.get_name_and_type(*name_and_type_index)?;
                 Ok((class_name, name, descriptor))
             }
-            _ => Err(RuntimeError::Internal(
-                InternalError::InvalidConstantPoolEntry,
-            )),
+            Some(other) => Err(InternalError::InvalidConstantPoolEntry {
+                index,
+                expected: "InterfaceRef",
+                found: format!("{:?}", other),
+            }
+            .into()),
+            None => Err(InternalError::InvalidConstantPoolEntry {
+                index,
+                expected: "InterfaceRef",
+                found: "out of bounds".to_string(),
+            }
+            .into()),
         }
     }
 

@@ -138,8 +138,8 @@ impl RuntimeMethod {
     }
 
     pub fn param_slot_count_from_descriptor(descriptor: &str) -> Result<usize, RuntimeError> {
-        let d = MethodDescriptor::from_str(descriptor)
-            .map_err(|_| InternalError::InvalidConstantPoolEntry)?;
+        let d =
+            MethodDescriptor::from_str(descriptor).map_err(|_| InternalError::InvalidDescriptor)?;
         Ok(d.parameter_types()
             .iter()
             .map(|p| match p {

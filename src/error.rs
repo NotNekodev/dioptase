@@ -10,8 +10,16 @@ pub enum InternalError {
     NoCodeInMethod { method: String },
     #[error("Class {class} not found")]
     ClassNotFound { class: String },
-    #[error("Invalid constant pool entry")]
-    InvalidConstantPoolEntry,
+    #[error("Invalid constant pool entry at index {index}: expected {expected}, found {found}")]
+    InvalidConstantPoolEntry {
+        index: u16,
+        expected: &'static str,
+        found: String,
+    },
+    #[error("Invalid slot")]
+    InvalidSlot,
+    #[error("Invalid method descriptor")]
+    InvalidDescriptor,
     #[error("Invalid opcode {opcode:#04x} @ pc {pc:#x}")]
     InvalidOpcode { opcode: u8, pc: usize },
     #[error("No thread frame given on thread {thread_id}")]
