@@ -54,6 +54,8 @@ pub enum Attribute {
     Exceptions {
         exceptions: Vec<u16>, // index into the constant pool, should be CONSTANT_Class_info, is the exception which can be thrown
     },
+
+    Unknown,
 }
 
 impl Attribute {
@@ -63,7 +65,7 @@ impl Attribute {
     ) -> Result<Self, Box<dyn Error + Send + Sync + 'static>> {
         let attribute_name_idx = reader.read_u16()?;
 
-        let _attribute_len = reader.read_u32()?;
+        let attribute_len = reader.read_u32()?;
 
         let binding = class_file.constant_pool.get_utf8(attribute_name_idx)?;
         let attribute_name: &str = binding.as_str();
@@ -157,7 +159,7 @@ impl Attribute {
 
                 let mut exceptions: Vec<u16> = Vec::new();
 
-                for i in 0..exception_count {
+                for _ in 0..exception_count {
                     let index = reader.read_u16()?;
                     exceptions.push(index);
                 }
@@ -184,11 +186,11 @@ impl Attribute {
 
                 return Ok(Self::InnerClasses { classes });
             }
-            _ => {
-                return Err(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    format!("Unknown attribute name {}", attribute_name),
-                )));
+            other => {
+                println!("Unknown attribute {}", other);
+
+                reader.skip(attribute_len as usize)?;
+                return Ok(Self::Unknown);
             }
         }
     }

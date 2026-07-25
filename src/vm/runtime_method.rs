@@ -48,7 +48,6 @@ impl RuntimeMethod {
         method: &MethodInfo,
         class: ClassRef,
         constant_pool: &ConstantPool,
-        class_name: &str,
     ) -> Result<Self, RuntimeError> {
         let method_str: String = constant_pool.get_utf8(method.name_index)?;
         let descriptor: String = constant_pool.get_utf8(method.descriptor_index)?;
