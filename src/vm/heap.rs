@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::{
-    error::{InternalError, RuntimeError},
+    error::RuntimeError,
     vm::{
         runtime_class::ClassRef,
         value::{ObjectRef, Value},
@@ -126,8 +126,11 @@ impl Heap {
     pub fn get_array(&self, r: ObjectRef) -> Result<&ArrayObject, crate::error::RuntimeError> {
         match &self.entries[r.0] {
             HeapEntry::Array(a) => Ok(a),
-            _ => Err(RuntimeError::Internal(
-                crate::error::InternalError::InvalidType,
+            other => Err(RuntimeError::Internal(
+                crate::error::InternalError::InvalidHeapEntry {
+                    expected: "HeapEntry::Array",
+                    found: format!("{:?}", other),
+                },
             )),
         }
     }
@@ -135,8 +138,11 @@ impl Heap {
     pub fn get_object(&self, r: ObjectRef) -> Result<&Object, crate::error::RuntimeError> {
         match &self.entries[r.0] {
             HeapEntry::Object(o) => Ok(o),
-            _ => Err(RuntimeError::Internal(
-                crate::error::InternalError::InvalidType,
+            other => Err(RuntimeError::Internal(
+                crate::error::InternalError::InvalidHeapEntry {
+                    expected: "HeapEntry::Object",
+                    found: format!("{:?}", other),
+                },
             )),
         }
     }
@@ -147,8 +153,11 @@ impl Heap {
     ) -> Result<&mut ArrayObject, crate::error::RuntimeError> {
         match &mut self.entries[r.0] {
             HeapEntry::Array(a) => Ok(a),
-            _ => Err(RuntimeError::Internal(
-                crate::error::InternalError::InvalidType,
+            other => Err(RuntimeError::Internal(
+                crate::error::InternalError::InvalidHeapEntry {
+                    expected: "HeapEntry::Array",
+                    found: format!("{:?}", other),
+                },
             )),
         }
     }
@@ -159,8 +168,11 @@ impl Heap {
     ) -> Result<&mut Object, crate::error::RuntimeError> {
         match &mut self.entries[r.0] {
             HeapEntry::Object(o) => Ok(o),
-            _ => Err(RuntimeError::Internal(
-                crate::error::InternalError::InvalidType,
+            other => Err(RuntimeError::Internal(
+                crate::error::InternalError::InvalidHeapEntry {
+                    expected: "HeapEntry::Object",
+                    found: format!("{:?}", other),
+                },
             )),
         }
     }
@@ -168,8 +180,11 @@ impl Heap {
     pub fn get_string(&self, r: ObjectRef) -> Result<&str, crate::error::RuntimeError> {
         match &self.entries[r.0] {
             HeapEntry::Str(s) => Ok(s),
-            _ => Err(RuntimeError::Internal(
-                crate::error::InternalError::InvalidType,
+            other => Err(RuntimeError::Internal(
+                crate::error::InternalError::InvalidHeapEntry {
+                    expected: "HeapEntry::Str",
+                    found: format!("{:?}", other),
+                },
             )),
         }
     }
@@ -183,7 +198,11 @@ impl Heap {
     pub fn get_class_object(&self, r: ObjectRef) -> Result<ClassRef, RuntimeError> {
         match &self.entries[r.0] {
             HeapEntry::ClassObject(c) => Ok(*c),
-            _ => Err(InternalError::InvalidType.into()),
+            other => Err(crate::error::InternalError::InvalidHeapEntry {
+                expected: "HeapEntry::ClassObject",
+                found: format!("{:?}", other),
+            }
+            .into()),
         }
     }
 }

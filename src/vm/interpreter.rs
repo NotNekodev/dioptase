@@ -1227,7 +1227,7 @@ impl Interpreter {
                             _ => return Err(RuntimeError::Internal(InternalError::InvalidType)),
                         };
 
-                        let obj_class = vm.heap().get_object(objectref)?.class;
+                        let obj_class = vm.runtime_class_of(objectref)?;
                         let (resolved_class, method_idx) =
                             vm.resolve_virtual_method(obj_class, &method_name, &descriptor)?;
                         let (max_locals, max_stack) = {
@@ -1424,7 +1424,7 @@ impl Interpreter {
                             _ => return Err(RuntimeError::Internal(InternalError::InvalidType)),
                         };
 
-                        let obj_class = vm.heap().get_object(objectref)?.class;
+                        let obj_class = vm.runtime_class_of(objectref)?;
                         let (resolved_class, method_idx) =
                             vm.resolve_virtual_method(obj_class, &method_name, &descriptor)?;
                         let (max_locals, max_stack) = {

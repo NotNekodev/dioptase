@@ -36,6 +36,11 @@ pub enum InternalError {
     NoLocalVar { index: usize },
     #[error("Invalid array type {atype}")]
     InvalidArrayType { atype: u8 },
+    #[error("Invalid heap entry type, expected {expected} found {found}")]
+    InvalidHeapEntry {
+        expected: &'static str,
+        found: String,
+    },
 }
 
 #[derive(Debug, Error)]

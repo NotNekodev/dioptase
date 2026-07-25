@@ -378,4 +378,13 @@ impl VM {
         self.class_objects.insert(class_ref, obj_ref);
         obj_ref
     }
+
+    pub fn runtime_class_of(&mut self, obj_ref: ObjectRef) -> Result<ClassRef, RuntimeError> {
+        match self.heap().get(obj_ref) {
+            crate::vm::heap::HeapEntry::Object(o) => Ok(o.class),
+            crate::vm::heap::HeapEntry::Str(_) => self.resolve_class("java/lang/String"),
+            crate::vm::heap::HeapEntry::ClassObject(_) => self.resolve_class("java/lang/Class"),
+            crate::vm::heap::HeapEntry::Array(_) => self.resolve_class("java/lang/Object"),
+        }
+    }
 }
