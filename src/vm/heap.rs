@@ -9,10 +9,12 @@ use crate::{
 };
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Object {
     pub class: ClassRef,
     pub fields: Vec<Value>,
+
+    pub class_object: Option<ClassRef>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -53,18 +55,17 @@ impl TryFrom<u8> for ArrayElementType {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ArrayObject {
     pub element_type: ArrayElementType,
     pub elements: Vec<Value>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum HeapEntry {
     Object(Object),
     Array(ArrayObject),
     Str(Rc<str>),
-    ClassObject(ClassRef),
 }
 
 #[allow(dead_code)]
@@ -83,10 +84,13 @@ impl Heap {
 
     pub fn allocate_object(&mut self, class: ClassRef, field_slot_count: usize) -> ObjectRef {
         let id = self.entries.len();
+
         self.entries.push(HeapEntry::Object(Object {
             class,
             fields: vec![Value::Empty; field_slot_count],
+            class_object: None,
         }));
+
         ObjectRef(id)
     }
 
@@ -189,20 +193,38 @@ impl Heap {
         }
     }
 
-    pub fn allocate_class_object(&mut self, class: ClassRef) -> ObjectRef {
+    pub fn allocate_class_object(
+        &mut self,
+        class_class: ClassRef,
+        represented_class: ClassRef,
+        field_slot_count: usize,
+    ) -> ObjectRef {
         let id = self.entries.len();
-        self.entries.push(HeapEntry::ClassObject(class));
+
+        self.entries.push(HeapEntry::Object(Object {
+            class: class_class,
+            fields: vec![Value::Empty; field_slot_count],
+            class_object: Some(represented_class),
+        }));
+
         ObjectRef(id)
     }
 
     pub fn get_class_object(&self, r: ObjectRef) -> Result<ClassRef, RuntimeError> {
-        match &self.entries[r.0] {
-            HeapEntry::ClassObject(c) => Ok(*c),
-            other => Err(crate::error::InternalError::InvalidHeapEntry {
-                expected: "HeapEntry::ClassObject",
-                found: format!("{:?}", other),
-            }
-            .into()),
+        match self.entries[r.0].clone() {
+            HeapEntry::Object(ref object) => object.class_object.ok_or_else(|| {
+                RuntimeError::Internal(crate::error::InternalError::InvalidHeapEntry {
+                    expected: "java.lang.Class object",
+                    found: "ordinary Object".to_string(),
+                })
+            }),
+
+            other => Err(RuntimeError::Internal(
+                crate::error::InternalError::InvalidHeapEntry {
+                    expected: "java.lang.Class object",
+                    found: format!("{:?}", other),
+                },
+            )),
         }
     }
 }

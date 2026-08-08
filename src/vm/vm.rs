@@ -6,7 +6,7 @@ use crate::{
     vm::{
         classpath::ClassPath,
         frame::Frame,
-        heap::Heap,
+        heap::{Heap, HeapEntry},
         interpreter::Interpreter,
         runtime_class::{ClassRef, RuntimeClass},
         runtime_method::RuntimeMethod,
@@ -498,17 +498,32 @@ impl VM {
         if let Some(existing) = self.class_objects.get(&class_ref) {
             return *existing;
         }
-        let obj_ref = self.heap_mut().allocate_class_object(class_ref);
+
+        let class_class = self
+            .classes_by_name
+            .get("java/lang/Class")
+            .copied()
+            .expect("java/lang/Class must be loaded before creating Class objects");
+
+        let field_count = self
+            .get_class(class_class)
+            .expect("java/lang/Class is invalid")
+            .total_instance_slot_count();
+
+        let obj_ref = self
+            .heap_mut()
+            .allocate_class_object(class_class, class_ref, field_count);
+
         self.class_objects.insert(class_ref, obj_ref);
+
         obj_ref
     }
 
     pub fn runtime_class_of(&mut self, obj_ref: ObjectRef) -> Result<ClassRef, RuntimeError> {
         match self.heap().get(obj_ref) {
-            crate::vm::heap::HeapEntry::Object(o) => Ok(o.class),
-            crate::vm::heap::HeapEntry::Str(_) => self.resolve_class("java/lang/String"),
-            crate::vm::heap::HeapEntry::ClassObject(_) => self.resolve_class("java/lang/Class"),
-            crate::vm::heap::HeapEntry::Array(_) => self.resolve_class("java/lang/Object"),
+            HeapEntry::Object(o) => Ok(o.class),
+            HeapEntry::Str(_) => self.resolve_class("java/lang/String"),
+            HeapEntry::Array(_) => self.resolve_class("java/lang/Object"),
         }
     }
 }
