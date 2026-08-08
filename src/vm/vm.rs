@@ -1,4 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
+
+use jdescriptor::TypeDescriptor;
 
 use crate::{
     class::{class_file::ClassFile, method::MethodAccessFlags, reader::ClassReader},
@@ -235,10 +237,8 @@ impl VM {
             return Ok(());
         }
 
-        let static_slot_count = self.get_class(class_ref)?.static_slot_count();
-        let storage_ref = self
-            .heap_mut()
-            .allocate_object(class_ref, static_slot_count);
+        let defaults = self.default_static_field_values(class_ref)?;
+        let storage_ref = self.heap_mut().allocate_object_typed(class_ref, &defaults);
         self.static_storage.insert(class_ref, storage_ref);
 
         if let Some(clinit_idx) = self.get_class(class_ref)?.find_method("<clinit>", "()V") {
@@ -421,7 +421,8 @@ impl VM {
             .get_class(class_ref)
             .map(|c| c.total_instance_slot_count())
             .unwrap_or(1);
-        let obj_ref = self.heap_mut().allocate_object(class_ref, slot_count);
+        let defaults = self.default_field_values(class_ref).unwrap();
+        let obj_ref = self.heap_mut().allocate_object_typed(class_ref, &defaults);
 
         if let Some(msg) = message {
             if let Ok(Some((_, slot))) = self.find_instance_field(class_ref, "detailMessage") {
@@ -492,6 +493,50 @@ impl VM {
             current = class.super_class;
         }
         Ok(None)
+    }
+
+    fn default_value_for_descriptor(&self, descriptor: &str) -> Result<Value, RuntimeError> {
+        let type_desc =
+            TypeDescriptor::from_str(descriptor).map_err(|_| InternalError::InvalidDescriptor)?;
+
+        Ok(match type_desc {
+            TypeDescriptor::Boolean
+            | TypeDescriptor::Byte
+            | TypeDescriptor::Char
+            | TypeDescriptor::Short
+            | TypeDescriptor::Integer => Value::Int(0),
+            TypeDescriptor::Long => Value::Long(0),
+            TypeDescriptor::Float => Value::Float(0.0),
+            TypeDescriptor::Double => Value::Double(0.0),
+            TypeDescriptor::Object(_) | TypeDescriptor::Array(_, _) => Value::Reference(None),
+            TypeDescriptor::Void => Value::Empty,
+        })
+    }
+
+    pub fn default_field_values(&self, class_ref: ClassRef) -> Result<Vec<Value>, RuntimeError> {
+        let total = self.get_class(class_ref)?.total_instance_slot_count();
+        let mut fields = vec![Value::Empty; total];
+        let mut current = Some(class_ref);
+        while let Some(c) = current {
+            let class = self.get_class(c)?;
+            for f in &class.instance_fields {
+                fields[f.slot] = self.default_value_for_descriptor(&f.descriptor)?;
+            }
+            current = class.super_class;
+        }
+        Ok(fields)
+    }
+
+    pub fn default_static_field_values(
+        &self,
+        class_ref: ClassRef,
+    ) -> Result<Vec<Value>, RuntimeError> {
+        let class = self.get_class(class_ref)?;
+        let mut fields = vec![Value::Empty; class.static_slot_count()];
+        for f in &class.static_fields {
+            fields[f.slot] = self.default_value_for_descriptor(&f.descriptor)?;
+        }
+        Ok(fields)
     }
 
     pub fn class_object_for(&mut self, class_ref: ClassRef) -> ObjectRef {

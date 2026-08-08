@@ -69,7 +69,11 @@ fn real_main() -> Result<i32, Box<dyn Error + Send + Sync + 'static>> {
 
     match vm.run_main(main_class) {
         Ok(Value::Int(val)) => Ok(val),
-        Ok(_) => Err(Box::new(RuntimeError::from(InternalError::InvalidType))),
+        Ok(other) => Err(Box::new(RuntimeError::from(InternalError::InvalidType {
+            pc: 0xDEADBEEF,
+            expected: "Int".to_string(),
+            found: format!("{:?}", other),
+        }))),
         Err(RuntimeError::Thrown(obj_ref)) => {
             eprintln!(
                 "\x1b[1;31merror:\x1b[0m Exception in thread \"main\" {}",

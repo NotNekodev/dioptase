@@ -28,8 +28,12 @@ pub enum InternalError {
     OperandStackUnderflow { pc: usize },
     #[error("Thread with id {thread_id} not found")]
     ThreadNotFound { thread_id: usize },
-    #[error("Invalid type")]
-    InvalidType,
+    #[error("Invalid type @ pc {pc:#x}, expected {expected}, found {found}")]
+    InvalidType {
+        pc: usize,
+        expected: String,
+        found: String,
+    },
     #[error("Failed to load class {class} from classpath: {source_cp}")]
     ClassLoadError { class: String, source_cp: String },
     #[error("Local variable at index {index} not found")]

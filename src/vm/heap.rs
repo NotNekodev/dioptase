@@ -94,6 +94,22 @@ impl Heap {
         ObjectRef(id)
     }
 
+    pub fn allocate_object_typed(
+        &mut self,
+        class: ClassRef,
+        field_defaults: &[Value],
+    ) -> ObjectRef {
+        let id = self.entries.len();
+
+        self.entries.push(HeapEntry::Object(Object {
+            class,
+            fields: field_defaults.to_vec(),
+            class_object: None,
+        }));
+
+        ObjectRef(id)
+    }
+
     pub fn allocate_array(&mut self, element_type: ArrayElementType, length: usize) -> ObjectRef {
         let id = self.entries.len();
         let fill = match element_type {

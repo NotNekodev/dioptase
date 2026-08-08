@@ -44,13 +44,17 @@ pub fn get_primitive_class(
             }
         },
 
-        _ => {
+        other => {
             ctx.vm_mut().throw(
                 "java/lang/InternalError",
                 Some("argument 0 to java.lang.Class#getPrimitiveClass() is not a String"),
             );
             return Err(RuntimeError::Internal(
-                crate::error::InternalError::InvalidType,
+                crate::error::InternalError::InvalidType {
+                    pc: 0xDEADBEEF,
+                    expected: "java.class.String".to_string(),
+                    found: format!("{:?}", other),
+                },
             ));
         }
     }
