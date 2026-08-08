@@ -1965,13 +1965,33 @@ impl Interpreter {
                         let value1 = match frame.pop_value() {
                             Some(Value::Long(i)) => i,
                             other => {
-                                return Err(invalid_type!(frame.pc, "Double", other));
+                                return Err(invalid_type!(frame.pc, "Long", other));
                             }
                         };
 
                         let res = value1.bitand(value2);
 
                         frame.push_value(Value::Long(res));
+                    }
+
+                    Opcode::IAnd => {
+                        let value2 = match frame.pop_value() {
+                            Some(Value::Int(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let value1 = match frame.pop_value() {
+                            Some(Value::Int(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let res = value1.bitand(value2);
+
+                        frame.push_value(Value::Int(res));
                     }
 
                     Opcode::InvokeInterface => {
