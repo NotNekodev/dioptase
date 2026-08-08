@@ -15,6 +15,20 @@ use crate::{
     },
 };
 
+#[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
+pub struct PrimitiveClasses {
+    pub boolean: ClassRef,
+    pub byte: ClassRef,
+    pub char: ClassRef,
+    pub short: ClassRef,
+    pub int: ClassRef,
+    pub long: ClassRef,
+    pub float: ClassRef,
+    pub double: ClassRef,
+    pub void: ClassRef,
+}
+
 #[allow(dead_code)]
 pub struct VM {
     classes: Vec<RuntimeClass>,
@@ -26,12 +40,13 @@ pub struct VM {
     static_storage: HashMap<ClassRef, ObjectRef>,
     exceptions_registered: bool,
     class_objects: HashMap<ClassRef, ObjectRef>,
+    primitive_classes: PrimitiveClasses,
 }
 
 #[allow(dead_code)]
 impl VM {
     pub fn new() -> Self {
-        Self {
+        let mut vm = Self {
             classes: Vec::new(),
             threads: Vec::new(),
             main_thread: ThreadRef(0),
@@ -41,7 +56,58 @@ impl VM {
             static_storage: HashMap::new(),
             exceptions_registered: false,
             class_objects: HashMap::new(),
-        }
+
+            primitive_classes: PrimitiveClasses {
+                boolean: ClassRef(usize::MAX),
+                byte: ClassRef(usize::MAX),
+                char: ClassRef(usize::MAX),
+                short: ClassRef(usize::MAX),
+                int: ClassRef(usize::MAX),
+                long: ClassRef(usize::MAX),
+                float: ClassRef(usize::MAX),
+                double: ClassRef(usize::MAX),
+                void: ClassRef(usize::MAX),
+            },
+        };
+
+        vm.bootstrap_primitives();
+
+        vm
+    }
+
+    fn register_primitive_class(&mut self, name: &str) -> ClassRef {
+        let class_ref = ClassRef(self.classes.len());
+
+        let class = RuntimeClass::primitive(name);
+
+        self.classes.push(class);
+        self.classes_by_name.insert(name.to_string(), class_ref);
+
+        class_ref
+    }
+
+    fn bootstrap_primitives(&mut self) {
+        let boolean = self.register_primitive_class("boolean");
+        let byte = self.register_primitive_class("byte");
+        let char = self.register_primitive_class("char");
+        let short = self.register_primitive_class("short");
+        let int = self.register_primitive_class("int");
+        let long = self.register_primitive_class("long");
+        let float = self.register_primitive_class("float");
+        let double = self.register_primitive_class("double");
+        let void = self.register_primitive_class("void");
+
+        self.primitive_classes = PrimitiveClasses {
+            boolean,
+            byte,
+            char,
+            short,
+            int,
+            long,
+            float,
+            double,
+            void,
+        };
     }
 
     pub fn set_classpath(&mut self, classpath: ClassPath) {
@@ -273,6 +339,10 @@ impl VM {
 
     pub fn heap_mut(&mut self) -> &mut Heap {
         &mut self.heap
+    }
+
+    pub fn primitive_classes(&self) -> &PrimitiveClasses {
+        &self.primitive_classes
     }
 
     pub fn is_assignable(&self, from: ClassRef, to: ClassRef) -> Result<bool, RuntimeError> {

@@ -128,4 +128,19 @@ impl RuntimeClass {
                 })
                 .sum::<usize>()
     }
+
+    pub fn primitive(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            super_class: None,
+            methods: Vec::new(),
+            constant_pool: ConstantPool {
+                entries: Vec::new(),
+            },
+            instance_fields: Vec::new(),
+            static_fields: Vec::new(),
+            field_base_slot: 0,
+            interfaces: Vec::new(),
+        }
+    }
 }

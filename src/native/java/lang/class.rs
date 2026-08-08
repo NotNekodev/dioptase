@@ -1,4 +1,11 @@
-use crate::{error::RuntimeError, native::native_context::NativeContext, vm::value::Value};
+use crate::{
+    error::RuntimeError,
+    native::native_context::NativeContext,
+    vm::{
+        runtime_class::ClassRef,
+        value::Value::{self, Reference},
+    },
+};
 use dioptase_native_macros::native;
 
 #[native(
@@ -11,4 +18,90 @@ pub fn register_natives(
     _args: &[Value],
 ) -> Result<Option<Value>, RuntimeError> {
     Ok(None)
+}
+
+#[native(
+    class = "java/lang/Class",
+    name = "getPrimitiveClass",
+    descriptor = "(Ljava/lang/String;)Ljava/lang/Class;"
+)]
+pub fn get_primitive_class(
+    ctx: &mut NativeContext,
+    args: &[Value],
+) -> Result<Option<Value>, RuntimeError> {
+    let mut class_name: String = String::new();
+
+    match args[0].clone() {
+        Reference(reference) => match reference {
+            Some(objref) => {
+                class_name = ctx.vm().heap().get_string(objref)?.to_string().clone();
+            }
+            None => {
+                ctx.vm_mut().throw(
+                    "java/lang/NullPointerException",
+                    Some("Called java.lang.Class#getPrimitiveClass() with a null pointer"),
+                );
+            }
+        },
+
+        _ => {
+            ctx.vm_mut().throw(
+                "java/lang/InternalError",
+                Some("argument 0 to java.lang.Class#getPrimitiveClass() is not a String"),
+            );
+            return Err(RuntimeError::Internal(
+                crate::error::InternalError::InvalidType,
+            ));
+        }
+    }
+
+    println!("getPrimitiveClass for {:?}", class_name);
+
+    let primitive: ClassRef;
+
+    match class_name.as_str() {
+        "boolean" => {
+            primitive = ctx.vm().primitive_classes().boolean;
+        }
+
+        "byte" => {
+            primitive = ctx.vm().primitive_classes().boolean;
+        }
+
+        "char" => {
+            primitive = ctx.vm().primitive_classes().char;
+        }
+
+        "short" => {
+            primitive = ctx.vm().primitive_classes().short;
+        }
+
+        "int" => {
+            primitive = ctx.vm().primitive_classes().int;
+        }
+
+        "long" => {
+            primitive = ctx.vm().primitive_classes().long;
+        }
+
+        "float" => {
+            primitive = ctx.vm().primitive_classes().float;
+        }
+
+        "double" => {
+            primitive = ctx.vm().primitive_classes().double;
+        }
+
+        "void" => {
+            primitive = ctx.vm().primitive_classes().void;
+        }
+
+        _ => {
+            return Ok(Some(Reference(None)));
+        }
+    }
+
+    let primitive_class_ref = ctx.vm_mut().class_object_for(primitive);
+
+    Ok(Some(Reference(Some(primitive_class_ref))))
 }
