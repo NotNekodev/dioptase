@@ -36,6 +36,7 @@ pub enum Opcode {
     ALoad3 = 0x2d,
 
     IALoad = 0x2e,
+    CALoad = 0x34,
 
     AStore0 = 0x4b,
     AStore1 = 0x4c,
@@ -156,6 +157,7 @@ impl TryFrom<u8> for Opcode {
             0x2e => Ok(Self::IALoad),
 
             0x32 => Ok(Self::AALoad),
+            0x34 => Ok(Self::CALoad),
 
             0x3b => Ok(Self::IStore0),
             0x3c => Ok(Self::IStore1),

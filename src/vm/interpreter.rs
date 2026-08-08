@@ -1360,6 +1360,63 @@ impl Interpreter {
                         frame.push_value(value);
                     }
 
+                    Opcode::CALoad => {
+                        let index = match frame.pop_value() {
+                            Some(Value::Int(n)) => n as usize,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let arrayref = match frame.pop_value() {
+                            Some(Value::Reference(aref)) => aref,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Reference", other));
+                            }
+                        };
+
+                        let reference = match arrayref {
+                            Some(value) => value,
+                            None => {
+                                return Err(vm.throw(
+                                    "java/lang/NullPointerException",
+                                    Some(&format!(
+                                        "Tried to access index {} on a `null` array",
+                                        index
+                                    )),
+                                ));
+                            }
+                        };
+
+                        let value = {
+                            let result = {
+                                let array = vm.heap_mut().get_array_mut(reference)?;
+
+                                if let Some(v) = array.elements.get(index) {
+                                    Ok(v.clone())
+                                } else {
+                                    Err(array.elements.len())
+                                }
+                            };
+
+                            match result {
+                                Ok(v) => v,
+                                Err(len) => {
+                                    return Err(vm.throw(
+                                        "java/lang/ArrayIndexOutOfBoundsException",
+                                        Some(&format!(
+                                            "Index {} out of bounds for length {}",
+                                            index, len
+                                        )),
+                                    ));
+                                }
+                            }
+                        };
+
+                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                        frame.push_value(value);
+                    }
+
                     Opcode::ArrayLength => {
                         let arrayref = match frame.pop_value() {
                             Some(Value::Reference(aref)) => aref,
