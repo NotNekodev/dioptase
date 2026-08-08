@@ -111,3 +111,15 @@ pub fn get_primitive_class(
 
     Ok(Some(Reference(Some(primitive_class_ref))))
 }
+
+#[native(
+    class = "java/lang/Class",
+    name = "desiredAssertionStatus0",
+    descriptor = "(Ljava/lang/Class;)Z"
+)]
+pub fn desired_assertion_status(
+    _ctx: &mut NativeContext,
+    _args: &[Value],
+) -> Result<Option<Value>, RuntimeError> {
+    Ok(Some(Value::Int(0)))
+}
