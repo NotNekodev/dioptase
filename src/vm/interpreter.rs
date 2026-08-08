@@ -138,6 +138,11 @@ impl Interpreter {
                     Opcode::ILoad2 => frame.operand_stack.push(frame.locals[2].clone()),
                     Opcode::ILoad3 => frame.operand_stack.push(frame.locals[3].clone()),
 
+                    Opcode::FLoad0 => frame.operand_stack.push(frame.locals[0].clone()),
+                    Opcode::FLoad1 => frame.operand_stack.push(frame.locals[1].clone()),
+                    Opcode::FLoad2 => frame.operand_stack.push(frame.locals[2].clone()),
+                    Opcode::FLoad3 => frame.operand_stack.push(frame.locals[3].clone()),
+
                     Opcode::ALoad0 => frame.operand_stack.push(frame.locals[0].clone()),
                     Opcode::ALoad1 => frame.operand_stack.push(frame.locals[1].clone()),
                     Opcode::ALoad2 => frame.operand_stack.push(frame.locals[2].clone()),
