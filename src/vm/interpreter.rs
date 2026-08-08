@@ -1673,7 +1673,7 @@ impl Interpreter {
                                     .get_class(frame_class)?
                                     .constant_pool
                                     .get_utf8(string_index)?;
-                                Value::Reference(Some(vm.heap_mut().allocate_string(s)))
+                                Value::Reference(Some(vm.intern_string(&s)?))
                             }
                             crate::class::constant_pool::ConstantPoolEntry::Class {
                                 name_index,
@@ -1731,7 +1731,7 @@ impl Interpreter {
                                     .get_class(frame_class)?
                                     .constant_pool
                                     .get_utf8(string_index)?;
-                                Value::Reference(Some(vm.heap_mut().allocate_string(s)))
+                                Value::Reference(Some(vm.intern_string(&s)?))
                             }
                             crate::class::constant_pool::ConstantPoolEntry::Class {
                                 name_index,

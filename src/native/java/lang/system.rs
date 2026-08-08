@@ -63,8 +63,8 @@ pub fn init_properties(
     ];
 
     for (key, value) in entries {
-        let key_ref = ctx.vm_mut().heap_mut().allocate_string(key.to_string());
-        let val_ref = ctx.vm_mut().heap_mut().allocate_string(value.to_string());
+        let key_ref = ctx.vm_mut().allocate_string(key)?;
+        let val_ref = ctx.vm_mut().allocate_string(value)?;
 
         ctx.vm_mut().invoke_virtual_to_completion(
             props_ref,

@@ -8,7 +8,7 @@ use crate::{
     vm::{
         classpath::ClassPath,
         frame::Frame,
-        heap::{Heap, HeapEntry},
+        heap::{ArrayElementType, Heap, HeapEntry},
         interpreter::Interpreter,
         runtime_class::{ClassRef, RuntimeClass},
         runtime_method::RuntimeMethod,
@@ -43,6 +43,7 @@ pub struct VM {
     exceptions_registered: bool,
     class_objects: HashMap<ClassRef, ObjectRef>,
     primitive_classes: PrimitiveClasses,
+    string_pool: HashMap<String, ObjectRef>,
 }
 
 #[allow(dead_code)]
@@ -70,11 +71,101 @@ impl VM {
                 double: ClassRef(usize::MAX),
                 void: ClassRef(usize::MAX),
             },
+
+            string_pool: HashMap::new(),
         };
 
         vm.bootstrap_primitives();
 
         vm
+    }
+
+    pub fn allocate_string(&mut self, s: &str) -> Result<ObjectRef, RuntimeError> {
+        let string_class = self.resolve_class("java/lang/String")?;
+        self.ensure_class_initialized(string_class)?;
+
+        let units: Vec<u16> = s.encode_utf16().collect();
+
+        let array_ref = self
+            .heap_mut()
+            .allocate_array(ArrayElementType::Char, units.len());
+        {
+            let array = self.heap_mut().get_array_mut(array_ref)?;
+            for (slot, unit) in array.elements.iter_mut().zip(units.iter()) {
+                *slot = Value::Int(*unit as i32);
+            }
+        }
+
+        let defaults = self.default_field_values(string_class)?;
+        let obj_ref = self
+            .heap_mut()
+            .allocate_object_typed(string_class, &defaults);
+
+        if let Some((_, slot)) = self.find_instance_field(string_class, "value")? {
+            self.heap_mut().get_object_mut(obj_ref)?.fields[slot] =
+                Value::Reference(Some(array_ref));
+        }
+
+        Ok(obj_ref)
+    }
+
+    pub fn intern_string(&mut self, s: &str) -> Result<ObjectRef, RuntimeError> {
+        if let Some(existing) = self.string_pool.get(s) {
+            return Ok(*existing);
+        }
+        let obj_ref = self.allocate_string(s)?;
+        self.string_pool.insert(s.to_string(), obj_ref);
+        Ok(obj_ref)
+    }
+
+    pub fn java_string_to_rust(&self, r: ObjectRef) -> Result<String, RuntimeError> {
+        let obj = self.heap().get_object(r)?;
+        let string_class = self
+            .classes_by_name
+            .get("java/lang/String")
+            .copied()
+            .ok_or_else(|| {
+                RuntimeError::Internal(InternalError::ClassNotFound {
+                    class: "java/lang/String".to_string(),
+                })
+            })?;
+
+        if !self.is_assignable(obj.class, string_class)? {
+            return Err(RuntimeError::Internal(InternalError::InvalidHeapEntry {
+                expected: "java.lang.String",
+                found: self
+                    .get_class(obj.class)
+                    .map(|c| c.name.clone())
+                    .unwrap_or_default(),
+            }));
+        }
+
+        let (_, slot) = self
+            .find_instance_field(string_class, "value")?
+            .ok_or(InternalError::InvalidSlot)?;
+
+        let array_ref = match obj.fields[slot] {
+            Value::Reference(Some(r)) => r,
+            Value::Reference(None) => return Ok(String::new()),
+            ref other => {
+                return Err(RuntimeError::Internal(InternalError::InvalidHeapEntry {
+                    expected: "char[]",
+                    found: format!("{:?}", other),
+                }));
+            }
+        };
+
+        let array = self.heap().get_array(array_ref)?;
+        let units: Vec<u16> = array
+            .elements
+            .iter()
+            .map(|v| match v {
+                Value::Int(i) => *i as u16,
+                _ => 0,
+            })
+            .collect();
+
+        Ok(String::from_utf16_lossy(&units))
     }
 
     fn register_primitive_class(&mut self, name: &str) -> ClassRef {
@@ -422,7 +513,10 @@ impl VM {
 
         if let Some(msg) = message {
             if let Ok(Some((_, slot))) = self.find_instance_field(class_ref, "detailMessage") {
-                let str_ref = self.heap_mut().allocate_string(msg.to_string());
+                let str_ref = match self.allocate_string(msg) {
+                    Ok(r) => r,
+                    Err(e) => return e,
+                };
 
                 let class_name = self
                     .get_class(class_ref)
@@ -463,9 +557,7 @@ impl VM {
             .ok()
             .flatten()
             .and_then(|(_, slot)| match obj.fields.get(slot) {
-                Some(Value::Reference(Some(r))) => {
-                    self.heap().get_string(*r).ok().map(|s| s.to_string())
-                }
+                Some(Value::Reference(Some(r))) => self.java_string_to_rust(*r).ok(),
                 _ => None,
             });
 
@@ -562,7 +654,6 @@ impl VM {
     pub fn runtime_class_of(&mut self, obj_ref: ObjectRef) -> Result<ClassRef, RuntimeError> {
         match self.heap().get(obj_ref) {
             HeapEntry::Object(o) => Ok(o.class),
-            HeapEntry::Str(_) => self.resolve_class("java/lang/String"),
             HeapEntry::Array(_) => self.resolve_class("java/lang/Object"),
         }
     }

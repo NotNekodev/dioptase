@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use crate::{
     error::RuntimeError,
     vm::{
@@ -65,7 +63,6 @@ pub struct ArrayObject {
 pub enum HeapEntry {
     Object(Object),
     Array(ArrayObject),
-    Str(Rc<str>),
 }
 
 #[allow(dead_code)]
@@ -130,12 +127,6 @@ impl Heap {
         ObjectRef(id)
     }
 
-    pub fn allocate_string(&mut self, s: String) -> ObjectRef {
-        let id = self.entries.len();
-        self.entries.push(HeapEntry::Str(s.into()));
-        ObjectRef(id)
-    }
-
     pub fn get(&self, r: ObjectRef) -> &HeapEntry {
         &self.entries[r.0]
     }
@@ -191,18 +182,6 @@ impl Heap {
             other => Err(RuntimeError::Internal(
                 crate::error::InternalError::InvalidHeapEntry {
                     expected: "HeapEntry::Object",
-                    found: format!("{:?}", other),
-                },
-            )),
-        }
-    }
-
-    pub fn get_string(&self, r: ObjectRef) -> Result<&str, crate::error::RuntimeError> {
-        match &self.entries[r.0] {
-            HeapEntry::Str(s) => Ok(s),
-            other => Err(RuntimeError::Internal(
-                crate::error::InternalError::InvalidHeapEntry {
-                    expected: "HeapEntry::Str",
                     found: format!("{:?}", other),
                 },
             )),

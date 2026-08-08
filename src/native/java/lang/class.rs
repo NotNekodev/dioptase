@@ -34,7 +34,7 @@ pub fn get_primitive_class(
     match args[0].clone() {
         Reference(reference) => match reference {
             Some(objref) => {
-                class_name = ctx.vm().heap().get_string(objref)?.to_string().clone();
+                class_name = ctx.vm().java_string_to_rust(objref)?;
             }
             None => {
                 ctx.vm_mut().throw(
