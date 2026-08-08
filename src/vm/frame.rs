@@ -22,4 +22,20 @@ impl Frame {
             method_index,
         }
     }
+
+    pub fn push_value(&mut self, v: Value) {
+        let is_wide = matches!(v, Value::Long(_) | Value::Double(_));
+        if is_wide {
+            self.operand_stack.push(Value::Empty);
+        }
+        self.operand_stack.push(v);
+    }
+
+    pub fn pop_value(&mut self) -> Option<Value> {
+        let v = self.operand_stack.pop()?;
+        if matches!(v, Value::Long(_) | Value::Double(_)) {
+            self.operand_stack.pop();
+        }
+        Some(v)
+    }
 }

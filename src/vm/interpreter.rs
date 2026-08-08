@@ -1,4 +1,6 @@
-use std::ops::Mul;
+use std::{ops::Mul, str::FromStr};
+
+use jdescriptor::MethodDescriptor;
 
 use crate::{
     error::{InternalError, RuntimeError},
@@ -79,7 +81,7 @@ impl Interpreter {
                     let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                     frame.pc = h.handler_pc as usize;
                     frame.operand_stack.clear();
-                    frame.operand_stack.push(Value::Reference(Some(obj_ref)));
+                    frame.push_value(Value::Reference(Some(obj_ref)));
                     return Ok(true);
                 }
             }
@@ -130,7 +132,7 @@ impl Interpreter {
                         let value = code[frame.pc] as i8;
                         frame.pc += 1;
 
-                        frame.operand_stack.push(Value::Int(value as i32));
+                        frame.push_value(Value::Int(value as i32));
                     }
 
                     Opcode::Sipush => {
@@ -140,82 +142,74 @@ impl Interpreter {
                         frame.pc += 1;
                         let value: i16 = i16::from_be_bytes([byte1, byte2]);
 
-                        frame.operand_stack.push(Value::Int(value as i32));
+                        frame.push_value(Value::Int(value as i32));
                     }
 
-                    Opcode::IConst0 => frame.operand_stack.push(Value::Int(0)),
-                    Opcode::IConst1 => frame.operand_stack.push(Value::Int(1)),
-                    Opcode::IConst2 => frame.operand_stack.push(Value::Int(2)),
-                    Opcode::IConst3 => frame.operand_stack.push(Value::Int(3)),
-                    Opcode::IConst4 => frame.operand_stack.push(Value::Int(4)),
-                    Opcode::IConst5 => frame.operand_stack.push(Value::Int(5)),
+                    Opcode::IConst0 => frame.push_value(Value::Int(0)),
+                    Opcode::IConst1 => frame.push_value(Value::Int(1)),
+                    Opcode::IConst2 => frame.push_value(Value::Int(2)),
+                    Opcode::IConst3 => frame.push_value(Value::Int(3)),
+                    Opcode::IConst4 => frame.push_value(Value::Int(4)),
+                    Opcode::IConst5 => frame.push_value(Value::Int(5)),
 
-                    Opcode::FConst0 => frame.operand_stack.push(Value::Float(0.0)),
-                    Opcode::FConst1 => frame.operand_stack.push(Value::Float(1.0)),
-                    Opcode::FConst2 => frame.operand_stack.push(Value::Float(2.0)),
+                    Opcode::FConst0 => frame.push_value(Value::Float(0.0)),
+                    Opcode::FConst1 => frame.push_value(Value::Float(1.0)),
+                    Opcode::FConst2 => frame.push_value(Value::Float(2.0)),
 
-                    Opcode::ILoad0 => frame.operand_stack.push(frame.locals[0].clone()),
-                    Opcode::ILoad1 => frame.operand_stack.push(frame.locals[1].clone()),
-                    Opcode::ILoad2 => frame.operand_stack.push(frame.locals[2].clone()),
-                    Opcode::ILoad3 => frame.operand_stack.push(frame.locals[3].clone()),
+                    Opcode::ILoad0 => frame.push_value(frame.locals[0].clone()),
+                    Opcode::ILoad1 => frame.push_value(frame.locals[1].clone()),
+                    Opcode::ILoad2 => frame.push_value(frame.locals[2].clone()),
+                    Opcode::ILoad3 => frame.push_value(frame.locals[3].clone()),
 
-                    Opcode::FLoad0 => frame.operand_stack.push(frame.locals[0].clone()),
-                    Opcode::FLoad1 => frame.operand_stack.push(frame.locals[1].clone()),
-                    Opcode::FLoad2 => frame.operand_stack.push(frame.locals[2].clone()),
-                    Opcode::FLoad3 => frame.operand_stack.push(frame.locals[3].clone()),
+                    Opcode::FLoad0 => frame.push_value(frame.locals[0].clone()),
+                    Opcode::FLoad1 => frame.push_value(frame.locals[1].clone()),
+                    Opcode::FLoad2 => frame.push_value(frame.locals[2].clone()),
+                    Opcode::FLoad3 => frame.push_value(frame.locals[3].clone()),
 
-                    Opcode::ALoad0 => frame.operand_stack.push(frame.locals[0].clone()),
-                    Opcode::ALoad1 => frame.operand_stack.push(frame.locals[1].clone()),
-                    Opcode::ALoad2 => frame.operand_stack.push(frame.locals[2].clone()),
-                    Opcode::ALoad3 => frame.operand_stack.push(frame.locals[3].clone()),
+                    Opcode::ALoad0 => frame.push_value(frame.locals[0].clone()),
+                    Opcode::ALoad1 => frame.push_value(frame.locals[1].clone()),
+                    Opcode::ALoad2 => frame.push_value(frame.locals[2].clone()),
+                    Opcode::ALoad3 => frame.push_value(frame.locals[3].clone()),
 
                     Opcode::AStore0 => {
                         frame.locals[0] = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
                     }
                     Opcode::AStore1 => {
                         frame.locals[1] = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
                     }
                     Opcode::AStore2 => {
                         frame.locals[2] = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
                     }
                     Opcode::AStore3 => {
                         frame.locals[3] = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
                     }
 
                     Opcode::IStore0 => {
                         frame.locals[0] = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
                     }
                     Opcode::IStore1 => {
                         frame.locals[1] = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
                     }
                     Opcode::IStore2 => {
                         frame.locals[2] = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
                     }
                     Opcode::IStore3 => {
                         frame.locals[3] = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
                     }
 
@@ -225,22 +219,20 @@ impl Interpreter {
                             .last()
                             .cloned()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
-                        frame.operand_stack.push(top);
+                        frame.push_value(top);
                     }
 
                     Opcode::IAdd => {
                         let value2 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
                         let value1 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match (value1, value2) {
                             (Value::Int(x), Value::Int(y)) => {
-                                frame.operand_stack.push(Value::Int(x.wrapping_add(y)));
+                                frame.push_value(Value::Int(x.wrapping_add(y)));
                             }
                             other => {
                                 return Err(invalid_type!(frame.pc, "(Int, Int)", other));
@@ -248,19 +240,35 @@ impl Interpreter {
                         }
                     }
 
-                    Opcode::ISub => {
+                    Opcode::LAdd => {
                         let value2 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
                         let value1 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match (value1, value2) {
+                            (Value::Long(x), Value::Long(y)) => {
+                                frame.push_value(Value::Long(x.wrapping_add(y)));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "(Long, Long)", other));
+                            }
+                        }
+                    }
+
+                    Opcode::ISub => {
+                        let value2 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+                        let value1 = frame
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match (value1, value2) {
                             (Value::Int(x), Value::Int(y)) => {
-                                frame.operand_stack.push(Value::Int(x.wrapping_sub(y)));
+                                frame.push_value(Value::Int(x.wrapping_sub(y)));
                             }
                             other => {
                                 return Err(invalid_type!(frame.pc, "(Int, Int)", other));
@@ -270,17 +278,15 @@ impl Interpreter {
 
                     Opcode::IMul => {
                         let value2 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
                         let value1 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match (value1, value2) {
                             (Value::Int(x), Value::Int(y)) => {
-                                frame.operand_stack.push(Value::Int(x.wrapping_mul(y)));
+                                frame.push_value(Value::Int(x.wrapping_mul(y)));
                             }
                             other => {
                                 return Err(invalid_type!(frame.pc, "(Int, Int)", other));
@@ -290,17 +296,15 @@ impl Interpreter {
 
                     Opcode::FMul => {
                         let value2 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
                         let value1 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match (value1, value2) {
                             (Value::Float(x), Value::Float(y)) => {
-                                frame.operand_stack.push(Value::Float(x.mul(y)));
+                                frame.push_value(Value::Float(x.mul(y)));
                             }
                             other => {
                                 return Err(invalid_type!(frame.pc, "(Float, Float)", other));
@@ -310,22 +314,20 @@ impl Interpreter {
 
                     Opcode::IReturn => {
                         let ret = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         vm.get_thread(thread_ref)?.pop_frame();
 
                         match vm.get_thread(thread_ref)?.current_frame() {
-                            Some(caller) => caller.operand_stack.push(ret),
+                            Some(caller) => caller.push_value(ret),
                             None => return Ok(StepOutcome::Return(ret)),
                         }
                     }
 
                     Opcode::AReturn => {
                         let ret = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         if !matches!(ret, Value::Reference(_)) {
@@ -335,33 +337,31 @@ impl Interpreter {
                         vm.get_thread(thread_ref)?.pop_frame();
 
                         match vm.get_thread(thread_ref)?.current_frame() {
-                            Some(caller) => caller.operand_stack.push(ret),
+                            Some(caller) => caller.push_value(ret),
                             None => return Ok(StepOutcome::Return(ret)),
                         }
                     }
 
                     Opcode::FCmpL => {
                         let value2 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
                         let value1 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match (value1, value2) {
                             (Value::Float(value1), Value::Float(value2)) => {
                                 if value1 == value2 {
-                                    frame.operand_stack.push(Value::Int(0));
+                                    frame.push_value(Value::Int(0));
                                 }
 
                                 if value1 > value2 {
-                                    frame.operand_stack.push(Value::Int(1));
+                                    frame.push_value(Value::Int(1));
                                 }
 
                                 if value1 < value2 {
-                                    frame.operand_stack.push(Value::Int(-1));
+                                    frame.push_value(Value::Int(-1));
                                 }
                             }
 
@@ -373,26 +373,24 @@ impl Interpreter {
 
                     Opcode::FCmpG => {
                         let value2 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
                         let value1 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match (value1, value2) {
                             (Value::Float(value1), Value::Float(value2)) => {
                                 if value1 == value2 {
-                                    frame.operand_stack.push(Value::Int(0));
+                                    frame.push_value(Value::Int(0));
                                 }
 
                                 if value1 > value2 {
-                                    frame.operand_stack.push(Value::Int(1));
+                                    frame.push_value(Value::Int(1));
                                 }
 
                                 if value1 < value2 {
-                                    frame.operand_stack.push(Value::Int(-1));
+                                    frame.push_value(Value::Int(-1));
                                 }
                             }
 
@@ -418,12 +416,10 @@ impl Interpreter {
                         let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
 
                         let value2 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
                         let value1 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match (value1, value2) {
@@ -447,12 +443,10 @@ impl Interpreter {
                         let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
 
                         let value2 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
                         let value1 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match (value1, value2) {
@@ -476,12 +470,10 @@ impl Interpreter {
                         let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
 
                         let value2 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
                         let value1 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match (value1, value2) {
@@ -505,12 +497,10 @@ impl Interpreter {
                         let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
 
                         let value2 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
                         let value1 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match (value1, value2) {
@@ -534,12 +524,10 @@ impl Interpreter {
                         let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
 
                         let value2 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
                         let value1 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match (value1, value2) {
@@ -563,12 +551,10 @@ impl Interpreter {
                         let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
 
                         let value2 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
                         let value1 = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match (value1, value2) {
@@ -587,7 +573,7 @@ impl Interpreter {
                         let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
                         frame.pc += 2;
 
-                        let objectref = match frame.operand_stack.pop() {
+                        let objectref = match frame.pop_value() {
                             Some(Value::Reference(Some(r))) => r,
                             other => {
                                 return Err(invalid_type!(frame.pc, "Reference", other));
@@ -608,7 +594,7 @@ impl Interpreter {
                         let value = vm.heap().get_object(objectref)?.fields[slot].clone();
 
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
-                        frame.operand_stack.push(value);
+                        frame.push_value(value);
                     }
 
                     Opcode::PutField => {
@@ -616,10 +602,9 @@ impl Interpreter {
                         frame.pc += 2;
 
                         let value = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
-                        let objectref = match frame.operand_stack.pop() {
+                        let objectref = match frame.pop_value() {
                             Some(Value::Reference(Some(r))) => r,
                             other => {
                                 return Err(invalid_type!(frame.pc, "Reference", other));
@@ -668,27 +653,30 @@ impl Interpreter {
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                         let mut args = Vec::with_capacity(param_slots + 1);
 
-                        for _ in 0..param_slots {
+                        let param_types = MethodDescriptor::from_str(&descriptor);
+                        for _ in 0..param_types.unwrap().parameter_types().len() {
                             args.push(
                                 frame
-                                    .operand_stack
-                                    .pop()
+                                    .pop_value()
                                     .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?,
                             );
                         }
+                        args.reverse();
 
                         let objectref = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
-                        args.push(objectref);
-                        args.reverse();
+                        args.insert(0, objectref);
 
                         let mut new_frame =
                             Frame::new(max_locals, max_stack, target_class_ref, target_method_idx);
 
-                        for (i, v) in args.into_iter().enumerate() {
-                            new_frame.locals[i] = v;
+                        let mut slot = 0;
+                        for arg in args {
+                            let width =
+                                matches!(arg, Value::Long(_) | Value::Double(_)) as usize + 1;
+                            new_frame.locals[slot] = arg;
+                            slot += width;
                         }
 
                         vm.get_thread(thread_ref)?.push_frame(new_frame);
@@ -736,8 +724,9 @@ impl Interpreter {
 
                             let mut args = Vec::with_capacity(argument_count);
 
-                            for _ in 0..argument_count {
-                                args.push(frame.operand_stack.pop().ok_or(
+                            let param_types = MethodDescriptor::from_str(&descriptor);
+                            for _ in 0..param_types.unwrap().parameter_types().len() {
+                                args.push(frame.pop_value().ok_or(
                                     InternalError::OperandStackUnderflow { pc: frame.pc },
                                 )?);
                             }
@@ -765,8 +754,13 @@ impl Interpreter {
                                     target_method_idx,
                                 );
 
-                                for (i, arg) in args.into_iter().enumerate() {
-                                    new_frame.locals[i] = arg;
+                                let mut slot = 0;
+                                for arg in args {
+                                    let width = matches!(arg, Value::Long(_) | Value::Double(_))
+                                        as usize
+                                        + 1;
+                                    new_frame.locals[slot] = arg;
+                                    slot += width;
                                 }
 
                                 vm.get_thread(thread_ref)?.push_frame(new_frame);
@@ -780,8 +774,13 @@ impl Interpreter {
                                     target_method_idx,
                                 );
 
-                                for (i, arg) in args.into_iter().enumerate() {
-                                    new_frame.locals[i] = arg;
+                                let mut slot = 0;
+                                for arg in args {
+                                    let width = matches!(arg, Value::Long(_) | Value::Double(_))
+                                        as usize
+                                        + 1;
+                                    new_frame.locals[slot] = arg;
+                                    slot += width;
                                 }
 
                                 vm.get_thread(thread_ref)?.push_frame(new_frame);
@@ -822,7 +821,7 @@ impl Interpreter {
                             .allocate_object_typed(target_class_ref, &defaults);
 
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
-                        frame.operand_stack.push(Value::Reference(Some(obj_ref)));
+                        frame.push_value(Value::Reference(Some(obj_ref)));
                     }
 
                     Opcode::IInc => {
@@ -848,13 +847,12 @@ impl Interpreter {
 
                     Opcode::I2F => {
                         let value = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match value {
                             Value::Int(val) => {
-                                frame.operand_stack.push(Value::Float(val as f32));
+                                frame.push_value(Value::Float(val as f32));
                             }
                             other => {
                                 return Err(invalid_type!(frame.pc, "Int", other));
@@ -864,13 +862,12 @@ impl Interpreter {
 
                     Opcode::I2L => {
                         let value = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match value {
                             Value::Int(val) => {
-                                frame.operand_stack.push(Value::Long(val as i64));
+                                frame.push_value(Value::Long(val as i64));
                             }
                             other => {
                                 return Err(invalid_type!(frame.pc, "Int", other));
@@ -895,8 +892,7 @@ impl Interpreter {
                         let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
 
                         let value = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match value {
@@ -920,8 +916,7 @@ impl Interpreter {
                         let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
 
                         let value = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match value {
@@ -945,8 +940,7 @@ impl Interpreter {
                         let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
 
                         let value = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match value {
@@ -970,8 +964,7 @@ impl Interpreter {
                         let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
 
                         let value = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match value {
@@ -995,8 +988,7 @@ impl Interpreter {
                         let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
 
                         let value = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match value {
@@ -1020,8 +1012,7 @@ impl Interpreter {
                         let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
 
                         let value = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match value {
@@ -1037,7 +1028,7 @@ impl Interpreter {
                     }
 
                     Opcode::AConstNull => {
-                        frame.operand_stack.push(Value::Reference(None));
+                        frame.push_value(Value::Reference(None));
                     }
 
                     Opcode::IfNonNull => {
@@ -1049,8 +1040,7 @@ impl Interpreter {
                         let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
 
                         let reference_value = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match reference_value {
@@ -1076,8 +1066,7 @@ impl Interpreter {
                         let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
 
                         let reference_value = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         match reference_value {
@@ -1096,8 +1085,7 @@ impl Interpreter {
 
                     Opcode::Pop => {
                         let _ = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
                     }
 
@@ -1105,7 +1093,7 @@ impl Interpreter {
                         let atype = code[frame.pc];
                         frame.pc += 1;
 
-                        let length = match frame.operand_stack.pop() {
+                        let length = match frame.pop_value() {
                             Some(Value::Int(n)) if n >= 0 => n as usize,
                             Some(Value::Int(_)) => {
                                 return Err(vm.throw(
@@ -1124,14 +1112,14 @@ impl Interpreter {
                         let array_ref = vm.heap_mut().allocate_array(array_type, length);
 
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
-                        frame.operand_stack.push(Value::Reference(Some(array_ref)));
+                        frame.push_value(Value::Reference(Some(array_ref)));
                     }
 
                     Opcode::ANewArray => {
                         let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
                         frame.pc += 2;
 
-                        let length = match frame.operand_stack.pop() {
+                        let length = match frame.pop_value() {
                             Some(Value::Int(n)) if n >= 0 => n as usize,
                             Some(Value::Int(_)) => {
                                 return Err(vm.throw(
@@ -1156,25 +1144,25 @@ impl Interpreter {
                             .allocate_array(ArrayElementType::Reference(component), length);
 
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
-                        frame.operand_stack.push(Value::Reference(Some(array_ref)));
+                        frame.push_value(Value::Reference(Some(array_ref)));
                     }
 
                     Opcode::CAStore => {
-                        let value = match frame.operand_stack.pop() {
+                        let value = match frame.pop_value() {
                             Some(Value::Int(n)) => n as i32,
                             other => {
                                 return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         };
 
-                        let index = match frame.operand_stack.pop() {
+                        let index = match frame.pop_value() {
                             Some(Value::Int(n)) => n as usize,
                             other => {
                                 return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         };
 
-                        let arrayref = match frame.operand_stack.pop() {
+                        let arrayref = match frame.pop_value() {
                             Some(Value::Reference(aref)) => aref,
                             other => {
                                 return Err(invalid_type!(frame.pc, "Int", other));
@@ -1216,21 +1204,21 @@ impl Interpreter {
                     }
 
                     Opcode::IAStore => {
-                        let value = match frame.operand_stack.pop() {
+                        let value = match frame.pop_value() {
                             Some(Value::Int(n)) => n as i32,
                             other => {
                                 return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         };
 
-                        let index = match frame.operand_stack.pop() {
+                        let index = match frame.pop_value() {
                             Some(Value::Int(n)) => n as usize,
                             other => {
                                 return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         };
 
-                        let arrayref = match frame.operand_stack.pop() {
+                        let arrayref = match frame.pop_value() {
                             Some(Value::Reference(aref)) => aref,
                             other => {
                                 return Err(invalid_type!(frame.pc, "Int", other));
@@ -1272,14 +1260,14 @@ impl Interpreter {
                     }
 
                     Opcode::IALoad => {
-                        let index = match frame.operand_stack.pop() {
+                        let index = match frame.pop_value() {
                             Some(Value::Int(n)) => n as usize,
                             other => {
                                 return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         };
 
-                        let arrayref = match frame.operand_stack.pop() {
+                        let arrayref = match frame.pop_value() {
                             Some(Value::Reference(aref)) => aref,
                             other => {
                                 return Err(invalid_type!(frame.pc, "Int", other));
@@ -1325,11 +1313,11 @@ impl Interpreter {
                         };
 
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
-                        frame.operand_stack.push(value);
+                        frame.push_value(value);
                     }
 
                     Opcode::ArrayLength => {
-                        let arrayref = match frame.operand_stack.pop() {
+                        let arrayref = match frame.pop_value() {
                             Some(Value::Reference(aref)) => aref,
                             other => {
                                 return Err(invalid_type!(frame.pc, "Int", other));
@@ -1350,26 +1338,26 @@ impl Interpreter {
                         let length = array.elements.len();
 
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
-                        frame.operand_stack.push(Value::Int(length as i32));
+                        frame.push_value(Value::Int(length as i32));
                     }
 
                     Opcode::AAStore => {
                         let pc = frame.pc.clone();
-                        let value = match frame.operand_stack.pop() {
+                        let value = match frame.pop_value() {
                             Some(Value::Reference(aref)) => Value::Reference(aref),
                             other => {
                                 return Err(invalid_type!(pc, "Reference", other));
                             }
                         };
 
-                        let index = match frame.operand_stack.pop() {
+                        let index = match frame.pop_value() {
                             Some(Value::Int(aref)) => aref,
                             other => {
                                 return Err(invalid_type!(pc, "Reference", other));
                             }
                         };
 
-                        let arrayref = match frame.operand_stack.pop() {
+                        let arrayref = match frame.pop_value() {
                             Some(Value::Reference(aref)) => aref,
                             other => {
                                 return Err(invalid_type!(pc, "Reference", other));
@@ -1446,14 +1434,14 @@ impl Interpreter {
                     }
 
                     Opcode::AALoad => {
-                        let index = match frame.operand_stack.pop() {
+                        let index = match frame.pop_value() {
                             Some(Value::Int(aref)) => aref,
                             other => {
                                 return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         };
 
-                        let arrayref = match frame.operand_stack.pop() {
+                        let arrayref = match frame.pop_value() {
                             Some(Value::Reference(aref)) => aref,
                             other => {
                                 return Err(invalid_type!(frame.pc, "Reference", other));
@@ -1492,7 +1480,7 @@ impl Interpreter {
                         };
 
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
-                        frame.operand_stack.push(value);
+                        frame.push_value(value);
                     }
 
                     Opcode::GetStatic => {
@@ -1522,7 +1510,7 @@ impl Interpreter {
                         );
 
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
-                        frame.operand_stack.push(value);
+                        frame.push_value(value);
                     }
 
                     Opcode::PutStatic => {
@@ -1530,8 +1518,7 @@ impl Interpreter {
                         frame.pc += 2;
 
                         let value = frame
-                            .operand_stack
-                            .pop()
+                            .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         let (owner_name, field_name, _descriptor) = vm
@@ -1568,17 +1555,17 @@ impl Interpreter {
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
 
                         let mut args = Vec::with_capacity(param_slots);
-                        for _ in 0..param_slots {
+                        let param_types = MethodDescriptor::from_str(&descriptor);
+                        for _ in 0..param_types.unwrap().parameter_types().len() {
                             args.push(
                                 frame
-                                    .operand_stack
-                                    .pop()
+                                    .pop_value()
                                     .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?,
                             );
                         }
                         args.reverse();
 
-                        let objectref = match frame.operand_stack.pop() {
+                        let objectref = match frame.pop_value() {
                             Some(Value::Reference(Some(r))) => r,
                             Some(Value::Reference(None)) => {
                                 return Err(vm.throw(
@@ -1602,8 +1589,12 @@ impl Interpreter {
                         let mut new_frame =
                             Frame::new(max_locals, max_stack, resolved_class, method_idx);
                         new_frame.locals[0] = Value::Reference(Some(objectref));
-                        for (i, arg) in args.into_iter().enumerate() {
-                            new_frame.locals[i + 1] = arg;
+                        let mut slot = 0;
+                        for arg in args {
+                            let width =
+                                matches!(arg, Value::Long(_) | Value::Double(_)) as usize + 1;
+                            new_frame.locals[slot] = arg;
+                            slot += width;
                         }
                         vm.get_thread(thread_ref)?.push_frame(new_frame);
                     }
@@ -1663,7 +1654,7 @@ impl Interpreter {
                         };
 
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
-                        frame.operand_stack.push(value);
+                        frame.push_value(value);
                     }
 
                     Opcode::LdcW => {
@@ -1721,7 +1712,7 @@ impl Interpreter {
                         };
 
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
-                        frame.operand_stack.push(value);
+                        frame.push_value(value);
                     }
 
                     Opcode::Ldc2W => {
@@ -1781,12 +1772,10 @@ impl Interpreter {
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                         match value {
                             Value::Long(x) => {
-                                frame.operand_stack.push(Value::Long(x));
-                                frame.operand_stack.push(Value::Empty);
+                                frame.push_value(Value::Long(x));
                             }
                             Value::Double(x) => {
-                                frame.operand_stack.push(Value::Double(x));
-                                frame.operand_stack.push(Value::Empty);
+                                frame.push_value(Value::Double(x));
                             }
 
                             other => {
@@ -1802,14 +1791,14 @@ impl Interpreter {
                     }
 
                     Opcode::IRem => {
-                        let value2 = match frame.operand_stack.pop() {
+                        let value2 = match frame.pop_value() {
                             Some(Value::Int(i)) => i,
                             other => {
                                 return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         };
 
-                        let value1 = match frame.operand_stack.pop() {
+                        let value1 = match frame.pop_value() {
                             Some(Value::Int(i)) => i,
                             other => {
                                 return Err(invalid_type!(frame.pc, "Int", other));
@@ -1825,7 +1814,7 @@ impl Interpreter {
 
                         let res = value1 - (value1 / value2) * value2;
 
-                        frame.operand_stack.push(Value::Int(res));
+                        frame.push_value(Value::Int(res));
                     }
 
                     Opcode::InvokeInterface => {
@@ -1848,17 +1837,17 @@ impl Interpreter {
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
 
                         let mut args = Vec::with_capacity(param_slots);
-                        for _ in 0..param_slots {
+                        let param_types = MethodDescriptor::from_str(&descriptor);
+                        for _ in 0..param_types.unwrap().parameter_types().len() {
                             args.push(
                                 frame
-                                    .operand_stack
-                                    .pop()
+                                    .pop_value()
                                     .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?,
                             );
                         }
                         args.reverse();
 
-                        let objectref = match frame.operand_stack.pop() {
+                        let objectref = match frame.pop_value() {
                             Some(Value::Reference(Some(r))) => r,
                             Some(Value::Reference(None)) => {
                                 return Err(vm.throw(
@@ -1882,8 +1871,12 @@ impl Interpreter {
                         let mut new_frame =
                             Frame::new(max_locals, max_stack, resolved_class, method_idx);
                         new_frame.locals[0] = Value::Reference(Some(objectref));
-                        for (i, arg) in args.into_iter().enumerate() {
-                            new_frame.locals[i + 1] = arg;
+                        let mut slot = 0;
+                        for arg in args {
+                            let width =
+                                matches!(arg, Value::Long(_) | Value::Double(_)) as usize + 1;
+                            new_frame.locals[slot] = arg;
+                            slot += width;
                         }
                         vm.get_thread(thread_ref)?.push_frame(new_frame);
                     }
@@ -1943,7 +1936,7 @@ impl Interpreter {
 
                 if let Some(caller) = ctx.vm_mut().get_thread(thread_ref)?.current_frame() {
                     if let Some(value) = result {
-                        caller.operand_stack.push(value);
+                        caller.push_value(value);
                     }
 
                     return Ok(StepOutcome::Continue);
