@@ -1633,7 +1633,7 @@ impl Interpreter {
                         let mut new_frame =
                             Frame::new(max_locals, max_stack, resolved_class, method_idx);
                         new_frame.locals[0] = Value::Reference(Some(objectref));
-                        let mut slot = 0;
+                        let mut slot = 1;
                         for arg in args {
                             let width =
                                 matches!(arg, Value::Long(_) | Value::Double(_)) as usize + 1;
@@ -1955,7 +1955,7 @@ impl Interpreter {
                         let mut new_frame =
                             Frame::new(max_locals, max_stack, resolved_class, method_idx);
                         new_frame.locals[0] = Value::Reference(Some(objectref));
-                        let mut slot = 0;
+                        let mut slot = 1;
                         for arg in args {
                             let width =
                                 matches!(arg, Value::Long(_) | Value::Double(_)) as usize + 1;

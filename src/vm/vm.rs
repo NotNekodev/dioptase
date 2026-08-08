@@ -566,4 +566,34 @@ impl VM {
             HeapEntry::Array(_) => self.resolve_class("java/lang/Object"),
         }
     }
+
+    pub fn invoke_virtual_to_completion(
+        &mut self,
+        receiver: ObjectRef,
+        method_name: &str,
+        descriptor: &str,
+        args: Vec<Value>,
+    ) -> Result<Value, RuntimeError> {
+        let obj_class = self.runtime_class_of(receiver)?;
+        let (resolved_class, method_idx) =
+            self.resolve_virtual_method(obj_class, method_name, descriptor)?;
+        let (max_locals, max_stack) = {
+            let m = &self.get_class(resolved_class)?.methods[method_idx];
+            (m.max_locals, m.max_stack)
+        };
+
+        let thread = self.create_thread();
+        let mut frame = Frame::new(max_locals, max_stack, resolved_class, method_idx);
+        frame.locals[0] = Value::Reference(Some(receiver));
+
+        let mut slot = 1;
+        for arg in args {
+            let width = matches!(arg, Value::Long(_) | Value::Double(_)) as usize + 1;
+            frame.locals[slot] = arg;
+            slot += width;
+        }
+
+        self.get_thread(thread)?.push_frame(frame);
+        Interpreter::run(self, thread)
+    }
 }
