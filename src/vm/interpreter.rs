@@ -133,6 +133,10 @@ impl Interpreter {
                     Opcode::IConst4 => frame.operand_stack.push(Value::Int(4)),
                     Opcode::IConst5 => frame.operand_stack.push(Value::Int(5)),
 
+                    Opcode::FConst0 => frame.operand_stack.push(Value::Float(0.0)),
+                    Opcode::FConst1 => frame.operand_stack.push(Value::Float(1.0)),
+                    Opcode::FConst2 => frame.operand_stack.push(Value::Float(2.0)),
+
                     Opcode::ILoad0 => frame.operand_stack.push(frame.locals[0].clone()),
                     Opcode::ILoad1 => frame.operand_stack.push(frame.locals[1].clone()),
                     Opcode::ILoad2 => frame.operand_stack.push(frame.locals[2].clone()),

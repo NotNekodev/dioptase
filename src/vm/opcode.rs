@@ -15,6 +15,10 @@ pub enum Opcode {
     IConst4 = 0x07,
     IConst5 = 0x08,
 
+    FConst0 = 0x0b,
+    FConst1 = 0x0c,
+    FConst2 = 0x0d,
+
     ILoad0 = 0x1a,
     ILoad1 = 0x1b,
     ILoad2 = 0x1c,
@@ -113,6 +117,10 @@ impl TryFrom<u8> for Opcode {
             0x06 => Ok(Self::IConst3),
             0x07 => Ok(Self::IConst4),
             0x08 => Ok(Self::IConst5),
+
+            0x0b => Ok(Self::FConst0),
+            0x0c => Ok(Self::FConst1),
+            0x0d => Ok(Self::FConst2),
 
             0x1a => Ok(Self::ILoad0),
             0x1b => Ok(Self::ILoad1),
