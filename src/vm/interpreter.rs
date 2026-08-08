@@ -181,6 +181,15 @@ impl Interpreter {
                     Opcode::ALoad2 => frame.push_value(frame.locals[2].clone()),
                     Opcode::ALoad3 => frame.push_value(frame.locals[3].clone()),
 
+                    Opcode::AStore => {
+                        let index = code[frame.pc] as usize;
+                        frame.pc += 1;
+
+                        frame.locals[index] = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+                    }
+
                     Opcode::AStore0 => {
                         frame.locals[0] = frame
                             .pop_value()
