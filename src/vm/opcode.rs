@@ -31,6 +31,7 @@ pub enum Opcode {
     FLoad2 = 0x24,
     FLoad3 = 0x25,
 
+    ALoad = 0x19,
     ALoad0 = 0x2a,
     ALoad1 = 0x2b,
     ALoad2 = 0x2c,
@@ -154,6 +155,7 @@ impl TryFrom<u8> for Opcode {
             0x24 => Ok(Self::FLoad2),
             0x25 => Ok(Self::FLoad3),
 
+            0x19 => Ok(Self::ALoad),
             0x2a => Ok(Self::ALoad0),
             0x2b => Ok(Self::ALoad1),
             0x2c => Ok(Self::ALoad2),
