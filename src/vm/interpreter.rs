@@ -1,3 +1,5 @@
+use std::ops::Mul;
+
 use crate::{
     error::{InternalError, RuntimeError},
     native::{
@@ -260,6 +262,24 @@ impl Interpreter {
                         match (value1, value2) {
                             (Value::Int(x), Value::Int(y)) => {
                                 frame.operand_stack.push(Value::Int(x.wrapping_mul(y)));
+                            }
+                            _ => return Err(RuntimeError::Internal(InternalError::InvalidType)),
+                        }
+                    }
+
+                    Opcode::FMul => {
+                        let value2 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+                        let value1 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match (value1, value2) {
+                            (Value::Float(x), Value::Float(y)) => {
+                                frame.operand_stack.push(Value::Float(x.mul(y)));
                             }
                             _ => return Err(RuntimeError::Internal(InternalError::InvalidType)),
                         }

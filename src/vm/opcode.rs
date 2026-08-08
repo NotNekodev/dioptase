@@ -51,6 +51,8 @@ pub enum Opcode {
     IAdd = 0x60,
     ISub = 0x64,
     IMul = 0x68,
+    FMul = 0x6a,
+
     IRem = 0x70,
 
     IInc = 0x84,
@@ -165,6 +167,8 @@ impl TryFrom<u8> for Opcode {
             0x60 => Ok(Self::IAdd),
             0x64 => Ok(Self::ISub),
             0x68 => Ok(Self::IMul),
+            0x6a => Ok(Self::FMul),
+
             0x70 => Ok(Self::IRem),
 
             0x84 => Ok(Self::IInc),
