@@ -127,9 +127,9 @@ const FIXTURES: [TestFixture; 21] = [
         expected_return: 42,
     },
     TestFixture {
-        source_path: "native_method_test/NativeMethodTest.java",
-        entry_class: "NativeMethodTest",
-        class_path: "native_method_test",
+        source_path: "hello_world_test/HelloWorldTest.java",
+        entry_class: "HelloWorldTest",
+        class_path: "hello_world_test",
         expected_return: 2,
     },
 ];

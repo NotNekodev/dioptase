@@ -83,6 +83,29 @@ impl VM {
         }
     }
 
+    pub fn invoke_static_to_completion(
+        &mut self,
+        class_ref: ClassRef,
+        name: &str,
+        descriptor: &str,
+    ) -> Result<Value, RuntimeError> {
+        let method_idx = self
+            .get_class(class_ref)?
+            .find_method(name, descriptor)
+            .ok_or_else(|| InternalError::MethodNotFound {
+                class: self.get_class(class_ref).unwrap().name.clone(),
+                method: name.to_string(),
+            })?;
+
+        let method = self.get_method(class_ref, method_idx)?;
+        let (max_locals, max_stack) = (method.max_locals, method.max_stack);
+
+        let thread = self.create_thread();
+        let frame = Frame::new(max_locals, max_stack, class_ref, method_idx);
+        self.get_thread(thread)?.push_frame(frame);
+        Interpreter::run(self, thread)
+    }
+
     pub fn get_method(
         &self,
         class_index: ClassRef,
@@ -213,6 +236,10 @@ impl VM {
 
     pub fn run_main(&mut self, main_class: &str) -> Result<Value, RuntimeError> {
         let main_thread = self.create_thread();
+
+        let system_class = self.resolve_class("java/lang/System")?;
+        self.ensure_class_initialized(system_class)?;
+        self.invoke_static_to_completion(system_class, "initializeSystemClass", "()V")?;
 
         let main_class: ClassRef = self.resolve_class(main_class)?;
         let mut main_method_idx: Option<usize> = None;

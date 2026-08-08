@@ -272,10 +272,21 @@ dependencies = [
  "anyhow",
  "bitflags",
  "clap",
+ "dioptase-native-macros",
+ "inventory",
  "jdescriptor",
  "simd_cesu8",
  "thiserror",
  "zip",
+]
+
+[[package]]
+name = "dioptase-native-macros"
+version = "0.1.0-alpha"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -384,6 +395,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4250ce6452e92010fdf7268ccc5d14faa80bb12fc741938534c58f16804e03c7"
 dependencies = [
  "hybrid-array",
+]
+
+[[package]]
+name = "inventory"
+version = "0.3.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4f0c30c76f2f4ccee3fe55a2435f691ca00c0e4bd87abe4f4a851b1d4dac39b"
+dependencies = [
+ "rustversion",
 ]
 
 [[package]]

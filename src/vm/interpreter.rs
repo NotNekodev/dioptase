@@ -2,7 +2,7 @@ use crate::{
     error::{InternalError, RuntimeError},
     native::{
         native_context::NativeContext,
-        native_registry::{NativeMethodIdentifier, native_registry},
+        native_registry::{NativeMethodIdentifier, NativeMethodRegistry},
     },
     vm::{
         frame::Frame,
@@ -1149,7 +1149,7 @@ impl Interpreter {
                         let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
                         frame.pc += 2;
 
-                        let (owner_name, field_name, _descriptor) = vm
+                        let (owner_name, field_name, descriptor) = vm
                             .get_class(frame_class)?
                             .constant_pool
                             .get_field_ref(index)?;
@@ -1165,6 +1165,11 @@ impl Interpreter {
                             .slot;
                         let storage_ref = vm.static_storage_ref(owner_ref)?;
                         let value = vm.heap().get_object(storage_ref)?.fields[slot].clone();
+
+                        println!(
+                            "GETSTATIC {}.{}:{} = {:?}",
+                            owner_name, field_name, descriptor, value
+                        );
 
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                         frame.operand_stack.push(value);
@@ -1478,15 +1483,17 @@ impl Interpreter {
                 let id: NativeMethodIdentifier =
                     NativeMethodIdentifier::new(class_name, method_name, descriptor);
 
-                let native = native_registry().lock().unwrap().get(&id).ok_or_else(|| {
-                    vm.throw(
-                        "java/lang/UnsatisfiedLinkError",
-                        Some(&format!(
-                            "{}.{}{}",
-                            id.class_name, id.method_name, id.descriptor,
-                        )),
-                    )
-                })?;
+                let native = NativeMethodRegistry::from_inventory()
+                    .get(&id)
+                    .ok_or_else(|| {
+                        vm.throw(
+                            "java/lang/UnsatisfiedLinkError",
+                            Some(&format!(
+                                "{}.{}{}",
+                                id.class_name, id.method_name, id.descriptor,
+                            )),
+                        )
+                    })?;
 
                 let args = {
                     let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();

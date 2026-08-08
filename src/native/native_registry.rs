@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    sync::{Mutex, OnceLock},
-};
+use std::collections::HashMap;
 
 use crate::native::native_context::NativeFunction;
 
@@ -12,7 +9,6 @@ pub struct NativeMethodIdentifier {
     pub descriptor: String,
 }
 
-#[allow(dead_code)]
 impl NativeMethodIdentifier {
     pub fn new(
         class_name: impl Into<String>,
@@ -67,6 +63,21 @@ impl NativeMethodRegistry {
     pub fn contains(&self, identifier: &NativeMethodIdentifier) -> bool {
         self.map.contains_key(identifier)
     }
+
+    pub fn from_inventory() -> Self {
+        let mut registry = Self::new();
+
+        for native in inventory::iter::<NativeRegistration> {
+            registry.register_parts(
+                native.class_name,
+                native.method_name,
+                native.descriptor,
+                native.function,
+            );
+        }
+
+        registry
+    }
 }
 
 impl Default for NativeMethodRegistry {
@@ -75,8 +86,11 @@ impl Default for NativeMethodRegistry {
     }
 }
 
-static NATIVE_REGISTRY: OnceLock<Mutex<NativeMethodRegistry>> = OnceLock::new();
-
-pub fn native_registry() -> &'static Mutex<NativeMethodRegistry> {
-    NATIVE_REGISTRY.get_or_init(|| Mutex::new(NativeMethodRegistry::new()))
+pub struct NativeRegistration {
+    pub class_name: &'static str,
+    pub method_name: &'static str,
+    pub descriptor: &'static str,
+    pub function: NativeFunction,
 }
+
+inventory::collect!(NativeRegistration);
