@@ -889,6 +889,21 @@ impl Interpreter {
                         }
                     }
 
+                    Opcode::F2I => {
+                        let value = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match value {
+                            Value::Float(val) => {
+                                frame.push_value(Value::Int(val as i32));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Float", other));
+                            }
+                        }
+                    }
+
                     Opcode::I2L => {
                         let value = frame
                             .pop_value()

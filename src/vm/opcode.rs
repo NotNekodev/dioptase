@@ -63,6 +63,7 @@ pub enum Opcode {
 
     I2L = 0x85,
     I2F = 0x86,
+    F2I = 0x8b,
 
     AALoad = 0x32,
 
@@ -187,6 +188,7 @@ impl TryFrom<u8> for Opcode {
 
             0x85 => Ok(Self::I2L),
             0x86 => Ok(Self::I2F),
+            0x8b => Ok(Self::F2I),
 
             0x95 => Ok(Self::FCmpL),
             0x96 => Ok(Self::FCmpG),
