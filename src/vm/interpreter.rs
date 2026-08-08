@@ -862,6 +862,22 @@ impl Interpreter {
                         }
                     }
 
+                    Opcode::I2L => {
+                        let value = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match value {
+                            Value::Int(val) => {
+                                frame.operand_stack.push(Value::Long(val as i64));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        }
+                    }
+
                     Opcode::Goto => {
                         let opcode_pc = frame.pc - 1;
                         let offset = i16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
