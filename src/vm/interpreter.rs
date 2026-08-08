@@ -279,6 +279,64 @@ impl Interpreter {
                         }
                     }
 
+                    Opcode::FCmpL => {
+                        let value2 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+                        let value1 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match (value1, value2) {
+                            (Value::Float(value1), Value::Float(value2)) => {
+                                if value1 == value2 {
+                                    frame.operand_stack.push(Value::Int(0));
+                                }
+
+                                if value1 > value2 {
+                                    frame.operand_stack.push(Value::Int(1));
+                                }
+
+                                if value1 < value2 {
+                                    frame.operand_stack.push(Value::Int(-1));
+                                }
+                            }
+
+                            _ => return Err(RuntimeError::Internal(InternalError::InvalidType)),
+                        }
+                    }
+
+                    Opcode::FCmpG => {
+                        let value2 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+                        let value1 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match (value1, value2) {
+                            (Value::Float(value1), Value::Float(value2)) => {
+                                if value1 == value2 {
+                                    frame.operand_stack.push(Value::Int(0));
+                                }
+
+                                if value1 > value2 {
+                                    frame.operand_stack.push(Value::Int(1));
+                                }
+
+                                if value1 < value2 {
+                                    frame.operand_stack.push(Value::Int(-1));
+                                }
+                            }
+
+                            _ => return Err(RuntimeError::Internal(InternalError::InvalidType)),
+                        }
+                    }
+
                     Opcode::Return => {
                         vm.get_thread(thread_ref)?.pop_frame();
                         if vm.get_thread(thread_ref)?.current_frame().is_none() {
