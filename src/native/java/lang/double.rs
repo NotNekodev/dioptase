@@ -30,3 +30,28 @@ pub fn double_to_raw_long_bits(
 
     Ok(Some(Value::Long(value.to_bits() as i64)))
 }
+
+#[native(
+    class = "java/lang/Double",
+    name = "longBitsToDouble",
+    descriptor = "(J)D"
+)]
+pub fn long_bits_to_double(
+    _ctx: &mut NativeContext,
+    args: &[Value],
+) -> Result<Option<Value>, RuntimeError> {
+    let value = match args.first() {
+        Some(Value::Long(value)) => *value,
+        other => {
+            return Err(RuntimeError::Internal(InternalError::InvalidType {
+                class: "java/lang/Double".to_string(),
+                method: "longBitsToDouble".to_string(),
+                pc: 0xDEADBEEF,
+                expected: "Long".to_string(),
+                found: format!("{:?}", other),
+            }));
+        }
+    };
+
+    Ok(Some(Value::Double(f64::from_bits(value as u64))))
+}
