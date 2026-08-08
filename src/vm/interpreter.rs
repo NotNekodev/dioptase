@@ -1970,6 +1970,26 @@ impl Interpreter {
                         frame.push_value(Value::Long(res));
                     }
 
+                    Opcode::IShl => {
+                        let value2 = match frame.pop_value() {
+                            Some(Value::Int(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let value1 = match frame.pop_value() {
+                            Some(Value::Int(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let res = value1.shl(value2);
+
+                        frame.push_value(Value::Int(res));
+                    }
+
                     Opcode::LAnd => {
                         let value2 = match frame.pop_value() {
                             Some(Value::Long(i)) => i,
