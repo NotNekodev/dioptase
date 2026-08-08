@@ -49,6 +49,8 @@ impl RuntimeClass {
 
         let mut runtime_class = RuntimeClass::new(name.clone(), super_class);
 
+        runtime_class.field_base_slot = field_base_slot;
+
         runtime_class.constant_pool = class_file.constant_pool.clone();
 
         let (instance_fields, static_fields) = RuntimeField::partition_field_infos(

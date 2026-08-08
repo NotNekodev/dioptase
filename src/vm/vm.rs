@@ -109,10 +109,18 @@ impl VM {
 
     pub fn add_class(&mut self, class: RuntimeClass) -> ClassRef {
         let id = self.classes.len();
-        self.classes_by_name
-            .insert(class.name.clone(), ClassRef(id));
+        if let Some(existing) = self
+            .classes_by_name
+            .insert(class.name.clone(), ClassRef(id))
+        {
+            println!(
+                "warning: class `{}` registered twice (old ref {:?}, new ref {:?})",
+                class.name,
+                existing,
+                ClassRef(id)
+            );
+        }
         self.classes.push(class);
-
         ClassRef(id)
     }
 
@@ -308,6 +316,10 @@ impl VM {
             Ok(c) => c,
             Err(e) => return e,
         };
+
+        #[allow(unused_must_use)]
+        self.ensure_class_initialized(class_ref);
+
         let slot_count = self
             .get_class(class_ref)
             .map(|c| c.total_instance_slot_count())
@@ -317,8 +329,25 @@ impl VM {
         if let Some(msg) = message {
             if let Ok(Some((_, slot))) = self.find_instance_field(class_ref, "detailMessage") {
                 let str_ref = self.heap_mut().allocate_string(msg.to_string());
+
+                let class_name = self
+                    .get_class(class_ref)
+                    .map(|c| c.name.clone())
+                    .unwrap_or_default();
+
                 if let Ok(obj) = self.heap_mut().get_object_mut(obj_ref) {
-                    obj.fields[slot] = Value::Reference(Some(str_ref));
+                    let field_count = obj.fields.len();
+
+                    match obj.fields.get_mut(slot) {
+                        Some(field) => *field = Value::Reference(Some(str_ref)),
+                        None => {
+                            println!(
+                                "warning: detailMessage slot {} out of bounds for {} (has {} fields) — \
+                                 likely duplicate/stale ClassRef for this class name",
+                                slot, class_name, field_count,
+                            );
+                        }
+                    }
                 }
             }
         }
