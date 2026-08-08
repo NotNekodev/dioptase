@@ -328,6 +328,19 @@ impl Interpreter {
                         }
                     }
 
+                    Opcode::FReturn => {
+                        let ret = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        vm.get_thread(thread_ref)?.pop_frame();
+
+                        match vm.get_thread(thread_ref)?.current_frame() {
+                            Some(caller) => caller.push_value(ret),
+                            None => return Ok(StepOutcome::Return(ret)),
+                        }
+                    }
+
                     Opcode::DReturn => {
                         let ret = frame
                             .pop_value()

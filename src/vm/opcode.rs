@@ -90,6 +90,7 @@ pub enum Opcode {
 
     Goto = 0xa7,
     IReturn = 0xac,
+    FReturn = 0xae,
     DReturn = 0xaf,
     AReturn = 0xb0,
     Return = 0xb1,
@@ -206,6 +207,7 @@ impl TryFrom<u8> for Opcode {
 
             0xa7 => Ok(Self::Goto),
             0xac => Ok(Self::IReturn),
+            0xae => Ok(Self::FReturn),
             0xaf => Ok(Self::DReturn),
             0xb0 => Ok(Self::AReturn),
             0xb1 => Ok(Self::Return),
