@@ -195,6 +195,15 @@ impl Interpreter {
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
                     }
 
+                    Opcode::IStore => {
+                        let index = code[frame.pc] as usize;
+                        frame.pc += 1;
+
+                        frame.locals[index] = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
+                    }
+
                     Opcode::IStore0 => {
                         frame.locals[0] = frame
                             .pop_value()
