@@ -159,6 +159,13 @@ impl Interpreter {
                     Opcode::FConst1 => frame.push_value(Value::Float(1.0)),
                     Opcode::FConst2 => frame.push_value(Value::Float(2.0)),
 
+                    Opcode::ILoad => {
+                        let index = code[frame.pc] as usize;
+                        frame.pc += 1;
+
+                        frame.push_value(frame.locals[index].clone())
+                    }
+
                     Opcode::ILoad0 => frame.push_value(frame.locals[0].clone()),
                     Opcode::ILoad1 => frame.push_value(frame.locals[1].clone()),
                     Opcode::ILoad2 => frame.push_value(frame.locals[2].clone()),

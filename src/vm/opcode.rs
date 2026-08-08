@@ -20,6 +20,7 @@ pub enum Opcode {
     FConst1 = 0x0c,
     FConst2 = 0x0d,
 
+    ILoad = 0x15,
     ILoad0 = 0x1a,
     ILoad1 = 0x1b,
     ILoad2 = 0x1c,
@@ -140,6 +141,7 @@ impl TryFrom<u8> for Opcode {
             0x0c => Ok(Self::FConst1),
             0x0d => Ok(Self::FConst2),
 
+            0x15 => Ok(Self::ILoad),
             0x1a => Ok(Self::ILoad0),
             0x1b => Ok(Self::ILoad1),
             0x1c => Ok(Self::ILoad2),
