@@ -626,7 +626,7 @@ impl Interpreter {
 
                         vm.ensure_class_initialized(target_class_ref)?;
 
-                        let (target_method_idx, max_locals, max_stack, argument_count) = {
+                        let (target_method_idx, max_locals, max_stack, argument_count, body) = {
                             let target_class = vm.get_class(target_class_ref)?;
                             let idx = target_class.find_method(&method_name, &descriptor).ok_or(
                                 InternalError::MethodNotFound {
@@ -634,29 +634,95 @@ impl Interpreter {
                                     method: method_name.clone(),
                                 },
                             )?;
-                            let m = &target_class.methods[idx];
-                            (idx, m.max_locals, m.max_stack, m.param_slot_count())
+
+                            let method = &target_class.methods[idx];
+
+                            (
+                                idx,
+                                method.max_locals,
+                                method.max_stack,
+                                method.param_slot_count(),
+                                method.body.clone(),
+                            )
                         };
 
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap(); // fresh borrow
-                        let mut args = Vec::with_capacity(argument_count);
+                        let args = {
+                            let frame = vm.get_thread(thread_ref)?.current_frame().ok_or(
+                                InternalError::NoCurrentFrame {
+                                    thread_id: thread_ref.0,
+                                },
+                            )?;
 
-                        for _ in 0..argument_count {
-                            args.push(
-                                frame
-                                    .operand_stack
-                                    .pop()
-                                    .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?,
-                            );
-                        }
-                        args.reverse();
+                            let mut args = Vec::with_capacity(argument_count);
 
-                        let mut new_frame =
-                            Frame::new(max_locals, max_stack, target_class_ref, target_method_idx);
-                        for (i, arg) in args.into_iter().enumerate() {
-                            new_frame.locals[i] = arg;
+                            for _ in 0..argument_count {
+                                args.push(frame.operand_stack.pop().ok_or(
+                                    InternalError::OperandStackUnderflow { pc: frame.pc },
+                                )?);
+                            }
+
+                            args.reverse();
+                            args
+                        };
+
+                        match body {
+                            MethodBody::Bytecode(_) => {
+                                if max_locals < argument_count {
+                                    return Err(RuntimeError::Internal(
+                                        InternalError::InvalidMethodLocals {
+                                            method: method_name,
+                                            expected: argument_count,
+                                            actual: max_locals,
+                                        },
+                                    ));
+                                }
+
+                                let mut new_frame = Frame::new(
+                                    max_locals,
+                                    max_stack,
+                                    target_class_ref,
+                                    target_method_idx,
+                                );
+
+                                for (i, arg) in args.into_iter().enumerate() {
+                                    new_frame.locals[i] = arg;
+                                }
+
+                                vm.get_thread(thread_ref)?.push_frame(new_frame);
+                            }
+
+                            MethodBody::Native => {
+                                let mut new_frame = Frame::new(
+                                    argument_count,
+                                    0,
+                                    target_class_ref,
+                                    target_method_idx,
+                                );
+
+                                for (i, arg) in args.into_iter().enumerate() {
+                                    new_frame.locals[i] = arg;
+                                }
+
+                                vm.get_thread(thread_ref)?.push_frame(new_frame);
+                            }
+
+                            MethodBody::Abstract => {
+                                return Err(RuntimeError::Internal(
+                                    InternalError::AbstractMethod {
+                                        class: target_class_name,
+                                        method: method_name,
+                                    },
+                                ));
+                            }
+
+                            MethodBody::Unknown => {
+                                return Err(RuntimeError::Internal(
+                                    InternalError::NoCodeInMethod {
+                                        method: method_name,
+                                    },
+                                ));
+                            }
                         }
-                        vm.get_thread(thread_ref)?.push_frame(new_frame);
                     }
 
                     Opcode::New => {

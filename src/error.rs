@@ -41,6 +41,14 @@ pub enum InternalError {
         expected: &'static str,
         found: String,
     },
+    #[error("Invalid method locals for method {method}: Expected {expected} but found {actual}")]
+    InvalidMethodLocals {
+        method: String,
+        expected: usize,
+        actual: usize,
+    },
+    #[error("Abstract methods arent yet implemented! ({class}#{method})")]
+    AbstractMethod { class: String, method: String },
 }
 
 #[derive(Debug, Error)]
