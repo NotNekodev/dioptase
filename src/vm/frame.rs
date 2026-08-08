@@ -23,6 +23,7 @@ impl Frame {
         }
     }
 
+    // The only reason this and pop_value exists is because Long and Double take up two operand stack slots, both on push and return
     pub fn push_value(&mut self, v: Value) {
         let is_wide = matches!(v, Value::Long(_) | Value::Double(_));
         if is_wide {
