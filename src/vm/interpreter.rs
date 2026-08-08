@@ -1713,7 +1713,7 @@ impl Interpreter {
                                 return Err(RuntimeError::Internal(
                                     InternalError::InvalidConstantPoolEntry {
                                         index,
-                                        expected: "Any data type",
+                                        expected: "Integer, Float, String or Class",
                                         found: format!("{:?}", other),
                                     },
                                 ));
@@ -1722,6 +1722,83 @@ impl Interpreter {
 
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                         frame.operand_stack.push(value);
+                    }
+
+                    Opcode::Ldc2W => {
+                        let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
+                        frame.pc += 2;
+
+                        let entry = vm
+                            .get_class(frame_class)?
+                            .constant_pool
+                            .entries
+                            .get(index as usize)
+                            .cloned()
+                            .ok_or(InternalError::InvalidConstantPoolEntry {
+                                index,
+                                expected: "Any constant pool data type",
+                                found: "out of bounds".to_string(),
+                            })?;
+
+                        let value = match entry {
+                            crate::class::constant_pool::ConstantPoolEntry::Long(i) => {
+                                Value::Long(i)
+                            }
+                            crate::class::constant_pool::ConstantPoolEntry::Double(f) => {
+                                Value::Double(f)
+                            }
+                            /*crate::class::constant_pool::ConstantPoolEntry::String {
+                                string_index,
+                            } => {
+                                let s = vm
+                                    .get_class(frame_class)?
+                                    .constant_pool
+                                    .get_utf8(string_index)?;
+                                Value::Reference(Some(vm.heap_mut().allocate_string(s)))
+                            }
+                            crate::class::constant_pool::ConstantPoolEntry::Class {
+                                name_index,
+                            } => {
+                                let class_name = vm
+                                    .get_class(frame_class)?
+                                    .constant_pool
+                                    .get_utf8(name_index)?;
+                                let target_class_ref = vm.resolve_class(&class_name)?;
+                                let class_obj_ref = vm.class_object_for(target_class_ref);
+                                Value::Reference(Some(class_obj_ref))
+                            }*/
+                            other => {
+                                return Err(RuntimeError::Internal(
+                                    InternalError::InvalidConstantPoolEntry {
+                                        index,
+                                        expected: "Long or Double",
+                                        found: format!("{:?}", other),
+                                    },
+                                ));
+                            }
+                        };
+
+                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                        match value {
+                            Value::Long(x) => {
+                                frame.operand_stack.push(Value::Long(x));
+                                frame.operand_stack.push(Value::Empty);
+                            }
+                            Value::Double(x) => {
+                                frame.operand_stack.push(Value::Double(x));
+                                frame.operand_stack.push(Value::Empty);
+                            }
+
+                            other => {
+                                return Err(RuntimeError::Internal(
+                                    InternalError::InvalidConstantPoolEntry {
+                                        index,
+                                        expected: "Long or Double",
+                                        found: format!("{:?}", other),
+                                    },
+                                ));
+                            }
+                        }
                     }
 
                     Opcode::IRem => {

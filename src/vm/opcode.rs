@@ -7,6 +7,7 @@ pub enum Opcode {
     Sipush = 0x11,
     Ldc = 0x12,
     LdcW = 0x13,
+    Ldc2W = 0x14,
 
     IConst0 = 0x03,
     IConst1 = 0x04,
@@ -119,6 +120,7 @@ impl TryFrom<u8> for Opcode {
             0x11 => Ok(Self::Sipush),
             0x12 => Ok(Self::Ldc),
             0x13 => Ok(Self::LdcW),
+            0x14 => Ok(Self::Ldc2W),
 
             0x03 => Ok(Self::IConst0),
             0x04 => Ok(Self::IConst1),
