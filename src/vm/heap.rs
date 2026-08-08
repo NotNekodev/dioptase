@@ -243,4 +243,19 @@ impl Heap {
             )),
         }
     }
+
+    pub fn allocate_class_object_typed(
+        &mut self,
+        class_class: ClassRef,
+        represented_class: ClassRef,
+        field_defaults: &[Value],
+    ) -> ObjectRef {
+        let id = self.entries.len();
+        self.entries.push(HeapEntry::Object(Object {
+            class: class_class,
+            fields: field_defaults.to_vec(),
+            class_object: Some(represented_class),
+        }));
+        ObjectRef(id)
+    }
 }

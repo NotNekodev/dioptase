@@ -100,6 +100,21 @@ impl Interpreter {
         };
         let body = vm.get_method(frame_class, frame_method_idx)?.body.clone();
 
+        let class_name = vm.get_class(frame_class)?.name.clone();
+        let method_name = vm.get_method(frame_class, frame_method_idx)?.name.clone();
+
+        macro_rules! invalid_type {
+            ($pc:expr, $expected:expr, $found:expr) => {
+                RuntimeError::Internal(InternalError::InvalidType {
+                    class: class_name.clone(),
+                    method: method_name.clone(),
+                    pc: $pc,
+                    expected: $expected.to_string(),
+                    found: format!("{:?}", $found),
+                })
+            };
+        }
+
         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
         match body {
             MethodBody::Bytecode(code) => {
@@ -228,11 +243,7 @@ impl Interpreter {
                                 frame.operand_stack.push(Value::Int(x.wrapping_add(y)));
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "(Int, Int)".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "(Int, Int)", other));
                             }
                         }
                     }
@@ -252,11 +263,7 @@ impl Interpreter {
                                 frame.operand_stack.push(Value::Int(x.wrapping_sub(y)));
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "(Int, Int)".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "(Int, Int)", other));
                             }
                         }
                     }
@@ -276,11 +283,7 @@ impl Interpreter {
                                 frame.operand_stack.push(Value::Int(x.wrapping_mul(y)));
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "(Int, Int)".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "(Int, Int)", other));
                             }
                         }
                     }
@@ -300,11 +303,7 @@ impl Interpreter {
                                 frame.operand_stack.push(Value::Float(x.mul(y)));
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "(Float, Float)".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "(Float, Float)", other));
                             }
                         }
                     }
@@ -330,11 +329,7 @@ impl Interpreter {
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
                         if !matches!(ret, Value::Reference(_)) {
-                            return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                pc: frame.pc,
-                                expected: "Reference".to_string(),
-                                found: format!("{:?}", ret),
-                            }));
+                            return Err(invalid_type!(frame.pc, "Reference", ret));
                         }
 
                         vm.get_thread(thread_ref)?.pop_frame();
@@ -371,11 +366,7 @@ impl Interpreter {
                             }
 
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "(Float, Float)".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "(Float, Float)", other));
                             }
                         }
                     }
@@ -406,11 +397,7 @@ impl Interpreter {
                             }
 
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "(Float, Float)".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "(Float, Float)", other));
                             }
                         }
                     }
@@ -446,11 +433,7 @@ impl Interpreter {
                                 }
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "(Int, Int)".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "(Int, Int)", other));
                             }
                         }
                     }
@@ -479,11 +462,7 @@ impl Interpreter {
                                 }
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "(Int, Int)".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "(Int, Int)", other));
                             }
                         }
                     }
@@ -512,11 +491,7 @@ impl Interpreter {
                                 }
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "(Int, Int)".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "(Int, Int)", other));
                             }
                         }
                     }
@@ -545,11 +520,7 @@ impl Interpreter {
                                 }
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "(Int, Int)".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "(Int, Int)", other));
                             }
                         }
                     }
@@ -578,11 +549,7 @@ impl Interpreter {
                                 }
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "(Int, Int)".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "(Int, Int)", other));
                             }
                         }
                     }
@@ -611,11 +578,7 @@ impl Interpreter {
                                 }
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "(Int, Int)".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "(Int, Int)", other));
                             }
                         }
                     }
@@ -627,11 +590,7 @@ impl Interpreter {
                         let objectref = match frame.operand_stack.pop() {
                             Some(Value::Reference(Some(r))) => r,
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Reference".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Reference", other));
                             }
                         };
 
@@ -663,11 +622,7 @@ impl Interpreter {
                         let objectref = match frame.operand_stack.pop() {
                             Some(Value::Reference(Some(r))) => r,
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Reference".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Reference", other));
                             }
                         };
 
@@ -886,11 +841,7 @@ impl Interpreter {
                                 *val = val.wrapping_add(amount as i32);
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         }
                     }
@@ -906,11 +857,7 @@ impl Interpreter {
                                 frame.operand_stack.push(Value::Float(val as f32));
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         }
                     }
@@ -943,11 +890,7 @@ impl Interpreter {
                                 }
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         }
                     }
@@ -972,11 +915,7 @@ impl Interpreter {
                                 }
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         }
                     }
@@ -1001,11 +940,7 @@ impl Interpreter {
                                 }
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         }
                     }
@@ -1030,11 +965,7 @@ impl Interpreter {
                                 }
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         }
                     }
@@ -1059,11 +990,7 @@ impl Interpreter {
                                 }
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         }
                     }
@@ -1088,11 +1015,7 @@ impl Interpreter {
                                 }
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         }
                     }
@@ -1123,11 +1046,7 @@ impl Interpreter {
                                 None => {}
                             },
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Reference".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Reference", other));
                             }
                         }
                     }
@@ -1154,11 +1073,7 @@ impl Interpreter {
                                 }
                             },
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Reference".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Reference", other));
                             }
                         }
                     }
@@ -1183,11 +1098,7 @@ impl Interpreter {
                                 ));
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         };
 
@@ -1213,11 +1124,7 @@ impl Interpreter {
                                 ));
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         };
 
@@ -1240,33 +1147,21 @@ impl Interpreter {
                         let value = match frame.operand_stack.pop() {
                             Some(Value::Int(n)) => n as i32,
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         };
 
                         let index = match frame.operand_stack.pop() {
                             Some(Value::Int(n)) => n as usize,
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         };
 
                         let arrayref = match frame.operand_stack.pop() {
                             Some(Value::Reference(aref)) => aref,
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         };
 
@@ -1308,33 +1203,21 @@ impl Interpreter {
                         let value = match frame.operand_stack.pop() {
                             Some(Value::Int(n)) => n as i32,
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         };
 
                         let index = match frame.operand_stack.pop() {
                             Some(Value::Int(n)) => n as usize,
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         };
 
                         let arrayref = match frame.operand_stack.pop() {
                             Some(Value::Reference(aref)) => aref,
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         };
 
@@ -1376,22 +1259,14 @@ impl Interpreter {
                         let index = match frame.operand_stack.pop() {
                             Some(Value::Int(n)) => n as usize,
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         };
 
                         let arrayref = match frame.operand_stack.pop() {
                             Some(Value::Reference(aref)) => aref,
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         };
 
@@ -1441,11 +1316,7 @@ impl Interpreter {
                         let arrayref = match frame.operand_stack.pop() {
                             Some(Value::Reference(aref)) => aref,
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         };
 
@@ -1471,33 +1342,21 @@ impl Interpreter {
                         let value = match frame.operand_stack.pop() {
                             Some(Value::Reference(aref)) => Value::Reference(aref),
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc,
-                                    expected: "Reference".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(pc, "Reference", other));
                             }
                         };
 
                         let index = match frame.operand_stack.pop() {
                             Some(Value::Int(aref)) => aref,
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc,
-                                    expected: "Reference".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(pc, "Reference", other));
                             }
                         };
 
                         let arrayref = match frame.operand_stack.pop() {
                             Some(Value::Reference(aref)) => aref,
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc,
-                                    expected: "Reference".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(pc, "Reference", other));
                             }
                         };
 
@@ -1520,13 +1379,7 @@ impl Interpreter {
                             match array.element_type {
                                 ArrayElementType::Reference(component) => component,
                                 other => {
-                                    return Err(RuntimeError::Internal(
-                                        InternalError::InvalidType {
-                                            pc,
-                                            expected: "Reference".to_string(),
-                                            found: format!("{:?}", other),
-                                        },
-                                    ));
+                                    return Err(invalid_type!(pc, "Reference", other));
                                 }
                             }
                         };
@@ -1552,11 +1405,7 @@ impl Interpreter {
                             }
 
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: pc,
-                                    expected: "Reference".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(pc, "Reference", other));
                             }
                         }
 
@@ -1584,22 +1433,14 @@ impl Interpreter {
                         let index = match frame.operand_stack.pop() {
                             Some(Value::Int(aref)) => aref,
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         };
 
                         let arrayref = match frame.operand_stack.pop() {
                             Some(Value::Reference(aref)) => aref,
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Reference".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Reference", other));
                             }
                         };
 
@@ -1730,11 +1571,7 @@ impl Interpreter {
                                 ));
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Reference".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Reference", other));
                             }
                         };
 
@@ -1875,22 +1712,14 @@ impl Interpreter {
                         let value2 = match frame.operand_stack.pop() {
                             Some(Value::Int(i)) => i,
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         };
 
                         let value1 = match frame.operand_stack.pop() {
                             Some(Value::Int(i)) => i,
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Int".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Int", other));
                             }
                         };
 
@@ -1945,11 +1774,7 @@ impl Interpreter {
                                 ));
                             }
                             other => {
-                                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                                    pc: frame.pc,
-                                    expected: "Reference".to_string(),
-                                    found: format!("{:?}", other),
-                                }));
+                                return Err(invalid_type!(frame.pc, "Reference", other));
                             }
                         };
 
@@ -2042,11 +1867,7 @@ impl Interpreter {
             }
 
             other => {
-                return Err(RuntimeError::Internal(InternalError::InvalidType {
-                    pc: frame.pc,
-                    expected: "Function Body".to_string(),
-                    found: format!("{:?}", other),
-                }));
+                return Err(invalid_type!(frame.pc, "Function Body", other));
             }
         }
     }

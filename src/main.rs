@@ -70,6 +70,8 @@ fn real_main() -> Result<i32, Box<dyn Error + Send + Sync + 'static>> {
     match vm.run_main(main_class) {
         Ok(Value::Int(val)) => Ok(val),
         Ok(other) => Err(Box::new(RuntimeError::from(InternalError::InvalidType {
+            class: "<unknown>".to_string(),
+            method: "<unknown>".to_string(),
             pc: 0xDEADBEEF,
             expected: "Int".to_string(),
             found: format!("{:?}", other),

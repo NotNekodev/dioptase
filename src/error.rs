@@ -28,8 +28,10 @@ pub enum InternalError {
     OperandStackUnderflow { pc: usize },
     #[error("Thread with id {thread_id} not found")]
     ThreadNotFound { thread_id: usize },
-    #[error("Invalid type @ pc {pc:#x}, expected {expected}, found {found}")]
+    #[error("Invalid type in {class}.{method} @ pc {pc:#x}, expected {expected}, found {found}")]
     InvalidType {
+        class: String,
+        method: String,
         pc: usize,
         expected: String,
         found: String,

@@ -550,14 +550,13 @@ impl VM {
             .copied()
             .expect("java/lang/Class must be loaded before creating Class objects");
 
-        let field_count = self
-            .get_class(class_class)
-            .expect("java/lang/Class is invalid")
-            .total_instance_slot_count();
+        let defaults = self
+            .default_field_values(class_class)
+            .expect("java/lang/Class fields must be valid");
 
-        let obj_ref = self
-            .heap_mut()
-            .allocate_class_object(class_class, class_ref, field_count);
+        let obj_ref =
+            self.heap_mut()
+                .allocate_class_object_typed(class_class, class_ref, &defaults);
 
         self.class_objects.insert(class_ref, obj_ref);
 

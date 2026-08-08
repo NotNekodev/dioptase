@@ -51,6 +51,8 @@ pub fn get_primitive_class(
             );
             return Err(RuntimeError::Internal(
                 crate::error::InternalError::InvalidType {
+                    class: "<unknown>".to_string(),
+                    method: "<unknown>".to_string(),
                     pc: 0xDEADBEEF,
                     expected: "java.class.String".to_string(),
                     found: format!("{:?}", other),
