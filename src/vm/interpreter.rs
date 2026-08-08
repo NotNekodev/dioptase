@@ -1,4 +1,7 @@
-use std::{ops::Mul, str::FromStr};
+use std::{
+    ops::{Mul, Shl},
+    str::FromStr,
+};
 
 use jdescriptor::MethodDescriptor;
 
@@ -1815,6 +1818,26 @@ impl Interpreter {
                         let res = value1 - (value1 / value2) * value2;
 
                         frame.push_value(Value::Int(res));
+                    }
+
+                    Opcode::LShl => {
+                        let value2 = match frame.pop_value() {
+                            Some(Value::Int(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let value1 = match frame.pop_value() {
+                            Some(Value::Long(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Double", other));
+                            }
+                        };
+
+                        let res = value1.shl(value2);
+
+                        frame.push_value(Value::Long(res));
                     }
 
                     Opcode::InvokeInterface => {

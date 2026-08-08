@@ -56,6 +56,7 @@ pub enum Opcode {
     FMul = 0x6a,
 
     IRem = 0x70,
+    LShl = 0x79,
 
     IInc = 0x84,
 
@@ -177,6 +178,7 @@ impl TryFrom<u8> for Opcode {
             0x6a => Ok(Self::FMul),
 
             0x70 => Ok(Self::IRem),
+            0x79 => Ok(Self::LShl),
 
             0x84 => Ok(Self::IInc),
 
