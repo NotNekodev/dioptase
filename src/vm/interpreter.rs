@@ -890,6 +890,56 @@ impl Interpreter {
                         frame.operand_stack.push(Value::Reference(Some(array_ref)));
                     }
 
+                    Opcode::CAStore => {
+                        let value = match frame.operand_stack.pop() {
+                            Some(Value::Int(n)) => n as i32,
+                            _ => return Err(RuntimeError::Internal(InternalError::InvalidType)),
+                        };
+
+                        let index = match frame.operand_stack.pop() {
+                            Some(Value::Int(n)) => n as usize,
+                            _ => return Err(RuntimeError::Internal(InternalError::InvalidType)),
+                        };
+
+                        let arrayref = match frame.operand_stack.pop() {
+                            Some(Value::Reference(aref)) => aref,
+                            _ => return Err(RuntimeError::Internal(InternalError::InvalidType)),
+                        };
+
+                        let reference = match arrayref {
+                            Some(value) => value,
+                            None => {
+                                return Err(vm.throw(
+                                    "java/lang/NullPointerException",
+                                    Some(&format!(
+                                        "Tried to access index {} on a `null` array",
+                                        index
+                                    )),
+                                ));
+                            }
+                        };
+
+                        {
+                            let len = {
+                                let array = vm.heap_mut().get_array_mut(reference)?;
+                                array.elements.len()
+                            };
+
+                            if index >= len {
+                                return Err(vm.throw(
+                                    "java/lang/ArrayIndexOutOfBoundsException",
+                                    Some(&format!(
+                                        "Index {} out of bounds for length {}",
+                                        index, len
+                                    )),
+                                ));
+                            }
+                        }
+
+                        let array = vm.heap_mut().get_array_mut(reference)?;
+                        array.elements[index] = Value::Int(value);
+                    }
+
                     Opcode::IAStore => {
                         let value = match frame.operand_stack.pop() {
                             Some(Value::Int(n)) => n as i32,
