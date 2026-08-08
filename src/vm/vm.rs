@@ -417,10 +417,6 @@ impl VM {
         #[allow(unused_must_use)]
         self.ensure_class_initialized(class_ref);
 
-        let slot_count = self
-            .get_class(class_ref)
-            .map(|c| c.total_instance_slot_count())
-            .unwrap_or(1);
         let defaults = self.default_field_values(class_ref).unwrap();
         let obj_ref = self.heap_mut().allocate_object_typed(class_ref, &defaults);
 
