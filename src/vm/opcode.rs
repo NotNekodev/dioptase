@@ -190,6 +190,8 @@ pub enum Opcode {
 
     CheckCast = 0xc0,
     InstanceOf = 0xc1,
+    MonitorEnter = 0xc2,
+    MonitorExit = 0xc3,
     IfNull = 0xc6,
     IfNonNull = 0xc7,
 }
@@ -387,6 +389,8 @@ impl TryFrom<u8> for Opcode {
 
             0xc0 => Ok(Self::CheckCast),
             0xc1 => Ok(Self::InstanceOf),
+            0xc2 => Ok(Self::MonitorEnter),
+            0xc3 => Ok(Self::MonitorExit),
             0xc6 => Ok(Self::IfNull),
             0xc7 => Ok(Self::IfNonNull),
 

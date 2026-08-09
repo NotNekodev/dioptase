@@ -3845,6 +3845,14 @@ impl Interpreter {
                         return Err(RuntimeError::Thrown(objectref));
                     }
 
+                    Opcode::MonitorEnter => {
+                        frame.pc += 1;
+                    }
+
+                    Opcode::MonitorExit => {
+                        frame.pc += 1;
+                    }
+
                     Opcode::InvokeInterface => {
                         let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
                         frame.pc += 2;
