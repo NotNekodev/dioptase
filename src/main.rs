@@ -77,8 +77,11 @@ fn real_main() -> Result<i32, Box<dyn Error + Send + Sync + 'static>> {
             found: format!("{:?}", other),
         }))),
         Err(RuntimeError::Thrown(obj_ref)) => {
+            let thread_name = vm.get_thread(*vm.main_thread())?.name.clone();
+
             eprintln!(
-                "\x1b[1;31merror:\x1b[0m Exception in thread \"main\" {}",
+                "\x1b[1;31merror:\x1b[0m Exception in thread \"{}\" {}",
+                thread_name,
                 vm.describe_exception(obj_ref)
             );
             Ok(1)

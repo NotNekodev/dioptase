@@ -6,16 +6,22 @@ pub struct ThreadRef(pub usize);
 #[allow(dead_code)]
 pub struct Thread {
     pub frames: Vec<Frame>,
-    pub id: usize,
+    pub id: ThreadRef,
+    pub name: String,
 }
 
 #[allow(dead_code)]
 impl Thread {
-    pub fn new(id: usize) -> Self {
+    pub fn new(id: ThreadRef, name: impl Into<String>) -> Self {
         Self {
             frames: Vec::new(),
             id: id,
+            name: name.into(),
         }
+    }
+
+    pub fn name(&self) -> &String {
+        &self.name
     }
 
     pub fn frames(&self) -> &Vec<Frame> {

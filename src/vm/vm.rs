@@ -95,6 +95,10 @@ impl VM {
         vm
     }
 
+    pub fn main_thread(&self) -> &ThreadRef {
+        &self.main_thread
+    }
+
     pub fn main_thread_group(&mut self) -> Result<ObjectRef, RuntimeError> {
         if let Some(existing) = self.main_thread_group {
             return Ok(existing);
@@ -371,7 +375,7 @@ impl VM {
         let method = self.get_method(class_ref, method_idx)?;
         let (max_locals, max_stack) = (method.max_locals, method.max_stack);
 
-        let thread = self.create_thread();
+        let thread = self.create_thread("static-invoke");
         let frame = Frame::new(max_locals, max_stack, class_ref, method_idx);
         self.get_thread(thread)?.push_frame(frame);
         Interpreter::run(self, thread)
@@ -418,9 +422,9 @@ impl VM {
         ClassRef(id)
     }
 
-    pub fn create_thread(&mut self) -> ThreadRef {
+    pub fn create_thread(&mut self, name: impl Into<String>) -> ThreadRef {
         let id = self.threads.len();
-        self.threads.push(Thread::new(id));
+        self.threads.push(Thread::new(ThreadRef(id), name));
         ThreadRef(id)
     }
 
@@ -448,7 +452,7 @@ impl VM {
             let method = self.get_method(class_ref, clinit_idx)?;
             let (max_locals, max_stack) = (method.max_locals, method.max_stack);
 
-            let clinit_thread = self.create_thread();
+            let clinit_thread = self.create_thread("<clinit>");
             let frame = Frame::new(max_locals, max_stack, class_ref, clinit_idx);
             self.get_thread(clinit_thread)?.push_frame(frame);
             Interpreter::run(self, clinit_thread)?;
@@ -504,7 +508,7 @@ impl VM {
     }
 
     pub fn run_main(&mut self, main_class: &str) -> Result<Value, RuntimeError> {
-        let main_thread = self.create_thread();
+        let main_thread = self.create_thread("main");
         self.main_thread = main_thread;
 
         let system_class = self.resolve_class("java/lang/System")?;
@@ -809,7 +813,7 @@ impl VM {
             (m.max_locals, m.max_stack)
         };
 
-        let thread = self.create_thread();
+        let thread = self.create_thread("virtual-invoke");
         let mut frame = Frame::new(max_locals, max_stack, resolved_class, method_idx);
         frame.locals[0] = Value::Reference(Some(receiver));
 
