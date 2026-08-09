@@ -31,6 +31,12 @@ pub struct PrimitiveClasses {
     pub void: ClassRef,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct ResolvedMethod {
+    pub class: ClassRef,
+    pub method: usize,
+}
+
 #[allow(dead_code)]
 pub struct VM {
     classes: Vec<RuntimeClass>,
@@ -44,6 +50,7 @@ pub struct VM {
     class_objects: HashMap<ClassRef, ObjectRef>,
     primitive_classes: PrimitiveClasses,
     string_pool: HashMap<String, ObjectRef>,
+    virtual_method_cache: HashMap<(ClassRef, String, String), ResolvedMethod>,
 }
 
 #[allow(dead_code)]
@@ -73,6 +80,7 @@ impl VM {
             },
 
             string_pool: HashMap::new(),
+            virtual_method_cache: HashMap::new(),
         };
 
         vm.bootstrap_primitives();
@@ -476,27 +484,50 @@ impl VM {
     }
 
     pub fn resolve_virtual_method(
-        &self,
+        &mut self,
         start: ClassRef,
         name: &str,
         descriptor: &str,
     ) -> Result<(ClassRef, usize), RuntimeError> {
-        let mut current = Some(start);
+        let key = (start, name.to_string(), descriptor.to_string());
 
-        while let Some(class_ref) = current {
-            let class = self.get_class(class_ref)?;
-
-            if let Some(index) = class.find_method(name, descriptor) {
-                return Ok((class_ref, index));
-            }
-
-            current = class.super_class;
+        if let Some(resolved) = self.virtual_method_cache.get(&key) {
+            return Ok((resolved.class, resolved.method));
         }
 
-        Err(RuntimeError::Internal(InternalError::MethodNotFound {
-            class: self.get_class(start)?.name.clone(),
-            method: name.to_string(),
-        }))
+        let resolved = {
+            let mut current = Some(start);
+
+            let mut result = None;
+
+            while let Some(class_ref) = current {
+                let class = self.get_class(class_ref)?;
+
+                if let Some(index) = class.find_method(name, descriptor) {
+                    result = Some(ResolvedMethod {
+                        class: class_ref,
+                        method: index,
+                    });
+                    break;
+                }
+
+                current = class.super_class;
+            }
+
+            result.ok_or_else(|| {
+                RuntimeError::Internal(InternalError::MethodNotFound {
+                    class: self
+                        .get_class(start)
+                        .map(|c| c.name.clone())
+                        .unwrap_or_else(|_| format!("class {}", start.0)),
+                    method: name.to_string(),
+                })
+            })?
+        };
+
+        self.virtual_method_cache.insert(key, resolved);
+
+        Ok((resolved.class, resolved.method))
     }
 
     pub fn throw(&mut self, class_name: &str, message: Option<&str>) -> RuntimeError {
