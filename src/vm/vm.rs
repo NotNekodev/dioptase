@@ -166,16 +166,46 @@ impl VM {
         Ok(obj_ref)
     }
 
-    pub fn thread_ref_from_object(&self, object_ref: ObjectRef) -> Result<ThreadRef, RuntimeError> {
-        self.thread_by_object
-            .get(&object_ref)
-            .copied()
-            .ok_or_else(|| {
-                RuntimeError::Internal(InternalError::InvalidHeapEntry {
-                    expected: "java/lang/Thread",
-                    found: format!("{:?}", object_ref),
-                })
-            })
+    pub fn thread_ref_from_object(
+        &mut self,
+        object_ref: ObjectRef,
+    ) -> Result<ThreadRef, RuntimeError> {
+        if let Some(thread_ref) = self.thread_by_object.get(&object_ref) {
+            return Ok(*thread_ref);
+        }
+
+        let class_ref = self.runtime_class_of(object_ref)?;
+        let thread_class = self.resolve_class("java/lang/Thread")?;
+
+        if !self.is_assignable(class_ref, thread_class)? {
+            let class_name = self.get_class(class_ref)?.name.clone();
+
+            return Err(RuntimeError::Internal(InternalError::InvalidHeapEntry {
+                expected: "java/lang/Thread",
+                found: class_name,
+            }));
+        }
+
+        let name = if let Some((_, slot)) = self.find_instance_field(class_ref, "name")? {
+            let value = {
+                let obj = self.heap().get_object(object_ref)?;
+                obj.fields.get(slot).cloned()
+            };
+
+            match value {
+                Some(Value::Reference(Some(name_ref))) => self.java_string_to_rust(name_ref)?,
+                _ => format!("Thread-{}", self.threads.len()),
+            }
+        } else {
+            format!("Thread-{}", self.threads.len())
+        };
+
+        let thread_ref = self.create_thread(name);
+
+        self.thread_objects.insert(thread_ref, object_ref);
+        self.thread_by_object.insert(object_ref, thread_ref);
+
+        Ok(thread_ref)
     }
 
     pub fn allocate_string(&mut self, s: &str) -> Result<ObjectRef, RuntimeError> {
