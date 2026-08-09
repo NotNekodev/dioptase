@@ -186,9 +186,7 @@ impl Attribute {
 
                 return Ok(Self::InnerClasses { classes });
             }
-            other => {
-                println!("Unknown attribute {}", other);
-
+            _ => {
                 reader.skip(attribute_len as usize)?;
                 return Ok(Self::Unknown);
             }

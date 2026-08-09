@@ -2750,7 +2750,7 @@ impl Interpreter {
                         let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
                         frame.pc += 2;
 
-                        let (owner_name, field_name, descriptor) = vm
+                        let (owner_name, field_name, _descriptor) = vm
                             .get_class(frame_class)?
                             .constant_pool
                             .get_field_ref(index)?;
@@ -2766,11 +2766,6 @@ impl Interpreter {
                             .slot;
                         let storage_ref = vm.static_storage_ref(owner_ref)?;
                         let value = vm.heap().get_object(storage_ref)?.fields[slot].clone();
-
-                        println!(
-                            "GETSTATIC {}.{}:{} = {:?}",
-                            owner_name, field_name, descriptor, value
-                        );
 
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                         frame.push_value(value);

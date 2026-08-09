@@ -61,8 +61,6 @@ pub fn get_primitive_class(
         }
     }
 
-    println!("getPrimitiveClass for {:?}", class_name);
-
     let primitive: ClassRef;
 
     match class_name.as_str() {
