@@ -1,7 +1,10 @@
 use crate::{
     error::{InternalError, RuntimeError},
     native::native_context::NativeContext,
-    vm::value::{ObjectRef, Value},
+    vm::value::{
+        ObjectRef,
+        Value::{self, Reference},
+    },
 };
 use dioptase_native_macros::native;
 
@@ -75,4 +78,16 @@ pub fn do_privileged_action(
     )?;
 
     Ok(Some(result))
+}
+
+#[native(
+    class = "java/security/AccessController",
+    name = "getStackAccessControlContext",
+    descriptor = "()Ljava/security/AccessControlContext;"
+)]
+pub fn get_stack_access_control_context(
+    _ctx: &mut NativeContext,
+    _args: &[Value],
+) -> Result<Option<Value>, RuntimeError> {
+    Ok(Some(Reference(None)))
 }
