@@ -3,11 +3,22 @@ use crate::vm::frame::Frame;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ThreadRef(pub usize);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ThreadState {
+    New,
+    Runnable,
+    Blocked,
+    Waiting,
+    TimedWaiting,
+    Terminated,
+}
+
 #[allow(dead_code)]
 pub struct Thread {
     frames: Vec<Frame>,
     id: ThreadRef,
     name: String,
+    state: ThreadState,
 }
 
 #[allow(dead_code)]
@@ -17,7 +28,29 @@ impl Thread {
             frames: Vec::new(),
             id: id,
             name: name.into(),
+            state: ThreadState::New,
         }
+    }
+
+    pub fn start(&mut self) {
+        debug_assert_eq!(self.state, ThreadState::New);
+        self.state = ThreadState::Runnable;
+    }
+
+    pub fn terminate(&mut self) {
+        self.state = ThreadState::Terminated;
+    }
+
+    pub fn block(&mut self) {
+        self.state = ThreadState::Blocked;
+    }
+
+    pub fn wait(&mut self) {
+        self.state = ThreadState::Waiting
+    }
+
+    pub fn timed_wait(&mut self) {
+        self.state = ThreadState::TimedWaiting;
     }
 
     pub fn name(&self) -> &String {
