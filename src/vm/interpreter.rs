@@ -1079,6 +1079,7 @@ impl Interpreter {
                     Opcode::InvokeSpecial => {
                         let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
                         frame.pc += 2;
+                        let pc = frame.pc;
 
                         let (target_class_name, method_name, descriptor) = vm
                             .get_class(frame_class)?
@@ -1086,51 +1087,149 @@ impl Interpreter {
                             .get_method_ref(index)?;
 
                         let target_class_ref = vm.resolve_class(&target_class_name)?;
+                        vm.ensure_class_initialized(target_class_ref)?;
 
-                        let (target_method_idx, max_locals, max_stack, param_slots) = {
+                        let target_method_idx = {
                             let target_class = vm.get_class(target_class_ref)?;
-
-                            let idx = target_class.find_method(&method_name, &descriptor).ok_or(
+                            target_class.find_method(&method_name, &descriptor).ok_or(
                                 InternalError::MethodNotFound {
                                     class: target_class.name.clone(),
                                     method: method_name.clone(),
                                 },
-                            )?;
-
-                            let m = &target_class.methods[idx];
-                            (idx, m.max_locals, m.max_stack, m.param_slot_count())
+                            )?
                         };
 
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
-                        let mut args = Vec::with_capacity(param_slots + 1);
+                        let parameter_count = MethodDescriptor::from_str(&descriptor)
+                            .map_err(|_| RuntimeError::Internal(InternalError::InvalidDescriptor))?
+                            .parameter_types()
+                            .len();
 
-                        let param_types = MethodDescriptor::from_str(&descriptor);
-                        for _ in 0..param_types.unwrap().parameter_types().len() {
-                            args.push(
-                                frame
-                                    .pop_value()
-                                    .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?,
-                            );
+                        let (args, objectref) = {
+                            let current_frame = vm.get_thread(thread_ref)?.current_frame().ok_or(
+                                InternalError::NoCurrentFrame {
+                                    thread_id: thread_ref.0,
+                                },
+                            )?;
+
+                            let mut args = Vec::with_capacity(parameter_count);
+                            for _ in 0..parameter_count {
+                                args.push(current_frame.pop_value().ok_or(
+                                    InternalError::OperandStackUnderflow {
+                                        pc: current_frame.pc,
+                                    },
+                                )?);
+                            }
+                            args.reverse();
+
+                            let objectref = current_frame.pop_value().ok_or(
+                                InternalError::OperandStackUnderflow {
+                                    pc: current_frame.pc,
+                                },
+                            )?;
+
+                            (args, objectref)
+                        };
+
+                        let objectref = match objectref {
+                            Value::Reference(Some(r)) => r,
+                            Value::Reference(None) => {
+                                return Err(vm.throw(
+                                    "java/lang/NullPointerException",
+                                    Some("null receiver in invokespecial"),
+                                ));
+                            }
+                            other => return Err(invalid_type!(pc, "Reference", other)),
+                        };
+
+                        let (max_locals, max_stack, body) = {
+                            let method = vm.get_method(target_class_ref, target_method_idx)?;
+                            (method.max_locals, method.max_stack, method.body.clone())
+                        };
+
+                        match body {
+                            MethodBody::Bytecode(_) => {
+                                let required_slots = 1
+                                    + parameter_count
+                                    + args
+                                        .iter()
+                                        .filter(|a| matches!(a, Value::Long(_) | Value::Double(_)))
+                                        .count();
+
+                                if max_locals < required_slots {
+                                    return Err(RuntimeError::Internal(
+                                        InternalError::InvalidMethodLocals {
+                                            method: method_name,
+                                            expected: required_slots,
+                                            actual: max_locals,
+                                        },
+                                    ));
+                                }
+
+                                let mut new_frame = Frame::new(
+                                    max_locals,
+                                    max_stack,
+                                    target_class_ref,
+                                    target_method_idx,
+                                );
+                                new_frame.locals[0] = Value::Reference(Some(objectref));
+
+                                let mut slot = 1;
+                                for arg in args {
+                                    let width = matches!(arg, Value::Long(_) | Value::Double(_))
+                                        as usize
+                                        + 1;
+                                    new_frame.locals[slot] = arg;
+                                    slot += width;
+                                }
+
+                                vm.get_thread(thread_ref)?.push_frame(new_frame);
+                            }
+
+                            MethodBody::Native => {
+                                let required_slots = 1
+                                    + parameter_count
+                                    + args
+                                        .iter()
+                                        .filter(|a| matches!(a, Value::Long(_) | Value::Double(_)))
+                                        .count();
+
+                                let mut new_frame = Frame::new(
+                                    required_slots,
+                                    0,
+                                    target_class_ref,
+                                    target_method_idx,
+                                );
+                                new_frame.locals[0] = Value::Reference(Some(objectref));
+
+                                let mut slot = 1;
+                                for arg in args {
+                                    let width = matches!(arg, Value::Long(_) | Value::Double(_))
+                                        as usize
+                                        + 1;
+                                    new_frame.locals[slot] = arg;
+                                    slot += width;
+                                }
+
+                                vm.get_thread(thread_ref)?.push_frame(new_frame);
+                            }
+
+                            MethodBody::Abstract => {
+                                return Err(RuntimeError::Internal(
+                                    InternalError::AbstractMethod {
+                                        class: target_class_name,
+                                        method: method_name,
+                                    },
+                                ));
+                            }
+
+                            MethodBody::Unknown => {
+                                return Err(RuntimeError::Internal(
+                                    InternalError::NoCodeInMethod {
+                                        method: method_name,
+                                    },
+                                ));
+                            }
                         }
-                        args.reverse();
-
-                        let objectref = frame
-                            .pop_value()
-                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
-                        args.insert(0, objectref);
-
-                        let mut new_frame =
-                            Frame::new(max_locals, max_stack, target_class_ref, target_method_idx);
-
-                        let mut slot = 0;
-                        for arg in args {
-                            let width =
-                                matches!(arg, Value::Long(_) | Value::Double(_)) as usize + 1;
-                            new_frame.locals[slot] = arg;
-                            slot += width;
-                        }
-
-                        vm.get_thread(thread_ref)?.push_frame(new_frame);
                     }
 
                     Opcode::InvokeStatic => {
