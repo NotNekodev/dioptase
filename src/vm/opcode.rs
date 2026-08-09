@@ -186,6 +186,7 @@ pub enum Opcode {
     NewArray = 0xbc,
     ANewArray = 0xbd,
     ArrayLength = 0xbe,
+    AThrow = 0xbf,
 
     CheckCast = 0xc0,
     InstanceOf = 0xc1,
@@ -382,6 +383,7 @@ impl TryFrom<u8> for Opcode {
             0xbc => Ok(Self::NewArray),
             0xbd => Ok(Self::ANewArray),
             0xbe => Ok(Self::ArrayLength),
+            0xbf => Ok(Self::AThrow),
 
             0xc0 => Ok(Self::CheckCast),
             0xc1 => Ok(Self::InstanceOf),

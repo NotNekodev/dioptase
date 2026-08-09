@@ -3011,6 +3011,10 @@ impl Interpreter {
                                 Some(Value::Reference(Some(reference))) => reference,
 
                                 Some(Value::Reference(None)) => {
+                                    println!(
+                                        "DEBUG: null receiver calling {}{}",
+                                        method_name, descriptor
+                                    );
                                     return Err(vm.throw(
                                         "java/lang/NullPointerException",
                                         Some("null receiver in invokevirtual"),
@@ -3818,6 +3822,23 @@ impl Interpreter {
                         )?;
 
                         frame.push_value(Value::Int(result));
+                    }
+
+                    Opcode::AThrow => {
+                        let objectref = match frame.pop_value() {
+                            Some(Value::Reference(Some(r))) => r,
+                            Some(Value::Reference(None)) => {
+                                return Err(vm.throw(
+                                    "java/lang/NullPointerException",
+                                    Some("Cannot throw a null reference"),
+                                ));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Reference", other));
+                            }
+                        };
+
+                        return Err(RuntimeError::Thrown(objectref));
                     }
 
                     Opcode::InvokeInterface => {

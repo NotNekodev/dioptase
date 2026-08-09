@@ -1,7 +1,10 @@
 use crate::{
-    error::RuntimeError,
+    error::{InternalError, RuntimeError},
     native::native_context::NativeContext,
-    vm::value::Value::{self, Reference},
+    vm::{
+        heap::{ArrayElementType, HeapEntry},
+        value::Value::{self, Reference},
+    },
 };
 use dioptase_native_macros::native;
 
@@ -78,4 +81,230 @@ pub fn init_properties(
     }
 
     Ok(Some(Reference(Some(props_ref))))
+}
+
+#[native(
+    class = "java/lang/System",
+    name = "arraycopy",
+    descriptor = "(Ljava/lang/Object;ILjava/lang/Object;II)V"
+)]
+pub fn arraycopy(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value>, RuntimeError> {
+    if args.len() != 5 {
+        return Err(RuntimeError::Internal(InternalError::InvalidType {
+            expected: "5 arguments to System.arraycopy".to_string(),
+            found: format!("{} arguments", args.len()),
+            class: "java/lang/System".to_string(),
+            pc: 0xDEADBEEF,
+            method: "arraycopy".to_string(),
+        }));
+    }
+
+    let src = match args[0] {
+        Value::Reference(Some(r)) => r,
+        Value::Reference(None) => {
+            return ctx.throw("java/lang/NullPointerException", Some("src"));
+        }
+        ref other => {
+            return Err(RuntimeError::Internal(InternalError::InvalidType {
+                expected: "Object reference for src".to_string(),
+                found: format!("{:?}", other),
+                class: "java/lang/System".to_string(),
+                method: "arraycopy".to_string(),
+                pc: 0xDEADBEEF,
+            }));
+        }
+    };
+
+    let src_pos = match args[1] {
+        Value::Int(v) => v,
+        ref other => {
+            return Err(RuntimeError::Internal(InternalError::InvalidType {
+                expected: "int for srcPos".to_string(),
+                found: format!("{:?}", other),
+                class: "java/lang/System".to_string(),
+                pc: 0xDEADBEEF,
+                method: "arraycopy".to_string(),
+            }));
+        }
+    };
+
+    let dest = match args[2] {
+        Value::Reference(Some(r)) => r,
+        Value::Reference(None) => {
+            return ctx.throw("java/lang/NullPointerException", Some("dest"));
+        }
+        ref other => {
+            return Err(RuntimeError::Internal(InternalError::InvalidType {
+                expected: "Object reference for dest".to_string(),
+                found: format!("{:?}", other),
+                pc: 0xDEADBEEF,
+                class: "java/lang/System".to_string(),
+                method: "arraycopy".to_string(),
+            }));
+        }
+    };
+
+    let dest_pos = match args[3] {
+        Value::Int(v) => v,
+        ref other => {
+            return Err(RuntimeError::Internal(InternalError::InvalidType {
+                expected: "int for destPos".to_string(),
+                found: format!("{:?}", other),
+                pc: 0xDEADBEEF,
+                class: "java/lang/System".to_string(),
+                method: "arraycopy".to_string(),
+            }));
+        }
+    };
+
+    let length = match args[4] {
+        Value::Int(v) => v,
+        ref other => {
+            return Err(RuntimeError::Internal(InternalError::InvalidType {
+                expected: "int for length".to_string(),
+                found: format!("{:?}", other),
+                pc: 0xDEADBEEF,
+                class: "java/lang/System".to_string(),
+                method: "arraycopy".to_string(),
+            }));
+        }
+    };
+
+    if src_pos < 0 || dest_pos < 0 || length < 0 {
+        return ctx.throw(
+            "java/lang/IndexOutOfBoundsException",
+            Some("Negative arraycopy index"),
+        );
+    }
+
+    let src_pos = src_pos as usize;
+    let dest_pos = dest_pos as usize;
+    let length = length as usize;
+
+    let src_array = match ctx.vm().heap().get(src) {
+        HeapEntry::Array(array) => array,
+        HeapEntry::Object(_) => {
+            return ctx.throw(
+                "java/lang/ArrayStoreException",
+                Some("source is not an array"),
+            );
+        }
+    };
+
+    let dest_array = match ctx.vm().heap().get(dest) {
+        HeapEntry::Array(array) => array,
+        HeapEntry::Object(_) => {
+            return ctx.throw(
+                "java/lang/ArrayStoreException",
+                Some("destination is not an array"),
+            );
+        }
+    };
+
+    let src_end = match src_pos.checked_add(length) {
+        Some(v) => v,
+        None => {
+            return ctx.throw(
+                "java/lang/IndexOutOfBoundsException",
+                Some("source array range overflow"),
+            );
+        }
+    };
+
+    let dest_end = match dest_pos.checked_add(length) {
+        Some(v) => v,
+        None => {
+            return ctx.throw(
+                "java/lang/IndexOutOfBoundsException",
+                Some("destination array range overflow"),
+            );
+        }
+    };
+
+    if src_end > src_array.elements.len() {
+        return ctx.throw(
+            "java/lang/IndexOutOfBoundsException",
+            Some("source array bounds"),
+        );
+    }
+
+    if dest_end > dest_array.elements.len() {
+        return ctx.throw(
+            "java/lang/IndexOutOfBoundsException",
+            Some("destination array bounds"),
+        );
+    }
+
+    if length == 0 {
+        return Ok(None);
+    }
+
+    let src_type = src_array.element_type;
+    let dest_type = dest_array.element_type;
+
+    let src_is_reference = matches!(src_type, ArrayElementType::Reference(_));
+    let dest_is_reference = matches!(dest_type, ArrayElementType::Reference(_));
+
+    if !src_is_reference || !dest_is_reference {
+        if src_is_reference || dest_is_reference {
+            return ctx.throw(
+                "java/lang/ArrayStoreException",
+                Some("incompatible array types"),
+            );
+        }
+
+        if src_type != dest_type {
+            return ctx.throw(
+                "java/lang/ArrayStoreException",
+                Some("incompatible primitive array types"),
+            );
+        }
+
+        let values = {
+            let array = ctx.vm().heap().get_array(src)?;
+            array.elements[src_pos..src_end].to_vec()
+        };
+
+        let destination = ctx.vm_mut().heap_mut().get_array_mut(dest)?;
+        destination.elements[dest_pos..dest_end].clone_from_slice(&values);
+
+        return Ok(None);
+    }
+
+    let dest_component = match dest_type {
+        ArrayElementType::Reference(class) => class,
+        _ => unreachable!(),
+    };
+
+    let values = {
+        let array = ctx.vm().heap().get_array(src)?;
+        array.elements[src_pos..src_end].to_vec()
+    };
+
+    for value in &values {
+        let reference = match value {
+            Value::Reference(Some(r)) => *r,
+            Value::Reference(None) => continue,
+            _ => {
+                return Err(RuntimeError::Internal(InternalError::InvalidHeapEntry {
+                    expected: "reference value in reference array",
+                    found: format!("{:?}", value),
+                }));
+            }
+        };
+
+        let actual_class = ctx.vm_mut().runtime_class_of(reference)?;
+
+        if !ctx.vm().is_assignable(actual_class, dest_component)? {
+            return ctx.throw(
+                "java/lang/ArrayStoreException",
+                Some("array element has incompatible type"),
+            );
+        }
+    }
+
+    let destination = ctx.vm_mut().heap_mut().get_array_mut(dest)?;
+    destination.elements[dest_pos..dest_end].clone_from_slice(&values);
+
+    Ok(None)
 }

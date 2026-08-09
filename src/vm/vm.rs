@@ -55,6 +55,7 @@ pub struct VM {
     string_pool: HashMap<String, ObjectRef>,
     virtual_method_cache: HashMap<(ClassRef, String, String), ResolvedMethod>,
     thread_objects: HashMap<ThreadRef, ObjectRef>,
+    main_thread_group: Option<ObjectRef>,
 }
 
 #[allow(dead_code)]
@@ -86,11 +87,38 @@ impl VM {
             string_pool: HashMap::new(),
             virtual_method_cache: HashMap::new(),
             thread_objects: HashMap::new(),
+            main_thread_group: None,
         };
 
         vm.bootstrap_primitives();
 
         vm
+    }
+
+    pub fn main_thread_group(&mut self) -> Result<ObjectRef, RuntimeError> {
+        if let Some(existing) = self.main_thread_group {
+            return Ok(existing);
+        }
+
+        let group_class = self.resolve_class("java/lang/ThreadGroup")?;
+        self.ensure_class_initialized(group_class)?;
+
+        let defaults = self.default_field_values(group_class)?;
+        let obj_ref = self
+            .heap_mut()
+            .allocate_object_typed(group_class, &defaults);
+
+        if let Some((_, slot)) = self.find_instance_field(group_class, "name")? {
+            let name_ref = self.allocate_string("main")?;
+            self.heap_mut().get_object_mut(obj_ref)?.fields[slot] =
+                Value::Reference(Some(name_ref));
+        }
+        if let Some((_, slot)) = self.find_instance_field(group_class, "maxPriority")? {
+            self.heap_mut().get_object_mut(obj_ref)?.fields[slot] = Value::Int(10);
+        }
+
+        self.main_thread_group = Some(obj_ref);
+        Ok(obj_ref)
     }
 
     pub fn thread_object_for(&mut self, thread_ref: ThreadRef) -> Result<ObjectRef, RuntimeError> {
@@ -119,6 +147,12 @@ impl VM {
 
         if let Some((_, slot)) = self.find_instance_field(thread_class, "priority")? {
             self.heap_mut().get_object_mut(obj_ref)?.fields[slot] = Value::Int(5);
+        }
+
+        let group_ref = self.main_thread_group()?;
+        if let Some((_, slot)) = self.find_instance_field(thread_class, "group")? {
+            self.heap_mut().get_object_mut(obj_ref)?.fields[slot] =
+                Value::Reference(Some(group_ref));
         }
 
         self.thread_objects.insert(thread_ref, obj_ref);
@@ -471,6 +505,7 @@ impl VM {
 
     pub fn run_main(&mut self, main_class: &str) -> Result<Value, RuntimeError> {
         let main_thread = self.create_thread();
+        self.main_thread = main_thread;
 
         let system_class = self.resolve_class("java/lang/System")?;
         self.ensure_class_initialized(system_class)?;
