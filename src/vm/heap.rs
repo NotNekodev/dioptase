@@ -245,7 +245,7 @@ impl Heap {
             HeapEntry::Object(ref object) => object.class_object.ok_or_else(|| {
                 RuntimeError::Internal(crate::error::InternalError::InvalidHeapEntry {
                     expected: "java.lang.Class object",
-                    found: "ordinary Object".to_string(),
+                    found: format!("{:?}", object),
                 })
             }),
 

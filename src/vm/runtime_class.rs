@@ -37,6 +37,14 @@ impl RuntimeClass {
         }
     }
 
+    pub fn is_array(&self) -> bool {
+        self.name.starts_with('[')
+    }
+
+    pub fn array_component_descriptor(&self) -> Option<&str> {
+        self.name.strip_prefix('[')
+    }
+
     pub fn from_class_file(
         class_file: &ClassFile,
         super_class: Option<ClassRef>,
