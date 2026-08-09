@@ -8,6 +8,7 @@ use crate::{
 pub struct ClassRef(pub usize);
 
 #[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub struct RuntimeClass {
     pub name: String,
     pub super_class: Option<ClassRef>,

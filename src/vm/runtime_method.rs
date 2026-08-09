@@ -12,7 +12,7 @@ use crate::{
     vm::runtime_class::ClassRef,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RuntimeExceptionHandler {
     pub start_pc: u16,
     pub end_pc: u16,
@@ -29,6 +29,7 @@ pub enum MethodBody {
 }
 
 #[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub struct RuntimeMethod {
     pub name: String,
     pub descriptor: String,

@@ -33,6 +33,22 @@ pub enum ArrayElementType {
     Reference(ClassRef),
 }
 
+impl ArrayElementType {
+    pub fn descriptor(&self) -> &'static str {
+        match self {
+            Self::Boolean => "Z",
+            Self::Byte => "B",
+            Self::Char => "C",
+            Self::Short => "S",
+            Self::Int => "I",
+            Self::Long => "J",
+            Self::Float => "F",
+            Self::Double => "D",
+            Self::Reference(_) => unreachable!(),
+        }
+    }
+}
+
 impl TryFrom<u8> for ArrayElementType {
     type Error = ();
 
@@ -58,6 +74,7 @@ impl TryFrom<u8> for ArrayElementType {
 pub struct ArrayObject {
     pub element_type: ArrayElementType,
     pub elements: Vec<Value>,
+    pub class: ClassRef,
 }
 
 #[derive(Debug, Clone)]
@@ -116,7 +133,12 @@ impl Heap {
         ObjectRef(id)
     }
 
-    pub fn allocate_array(&mut self, element_type: ArrayElementType, length: usize) -> ObjectRef {
+    pub fn allocate_array(
+        &mut self,
+        class: ClassRef,
+        element_type: ArrayElementType,
+        length: usize,
+    ) -> ObjectRef {
         let id = self.entries.len();
         let fill = match element_type {
             ArrayElementType::Boolean => Value::Int(0),
@@ -132,6 +154,7 @@ impl Heap {
         self.entries.push(HeapEntry::Array(ArrayObject {
             element_type,
             elements: vec![fill; length],
+            class: class,
         }));
         ObjectRef(id)
     }

@@ -3,7 +3,10 @@ use std::{collections::HashMap, str::FromStr};
 use jdescriptor::TypeDescriptor;
 
 use crate::{
-    class::{class_file::ClassFile, method::MethodAccessFlags, reader::ClassReader},
+    class::{
+        class_file::ClassFile, constant_pool::ConstantPool, method::MethodAccessFlags,
+        reader::ClassReader,
+    },
     error::{InternalError, RuntimeError},
     vm::{
         classpath::ClassPath,
@@ -94,9 +97,9 @@ impl VM {
 
         let units: Vec<u16> = s.encode_utf16().collect();
 
-        let array_ref = self
-            .heap_mut()
-            .allocate_array(ArrayElementType::Char, units.len());
+        let array_ref =
+            self.heap_mut()
+                .allocate_array(string_class, ArrayElementType::Char, units.len());
         {
             let array = self.heap_mut().get_array_mut(array_ref)?;
             for (slot, unit) in array.elements.iter_mut().zip(units.iter()) {
@@ -220,6 +223,10 @@ impl VM {
             return Ok(*existing);
         }
 
+        if binary_name.starts_with('[') {
+            return self.resolve_array_class(binary_name);
+        }
+
         let data =
             self.classpath
                 .find_class(binary_name)
@@ -235,6 +242,35 @@ impl VM {
             })?;
 
         self.load_class(class_file)
+    }
+
+    fn resolve_array_class(&mut self, descriptor: &str) -> Result<ClassRef, RuntimeError> {
+        if let Some(existing) = self.classes_by_name.get(descriptor) {
+            return Ok(*existing);
+        }
+
+        let object_class = self.resolve_class("java/lang/Object")?;
+
+        let class_ref = ClassRef(self.classes.len());
+
+        let class = RuntimeClass {
+            name: descriptor.to_string(),
+            super_class: Some(object_class),
+            methods: Vec::new(),
+            constant_pool: ConstantPool {
+                entries: Vec::new(),
+            },
+            instance_fields: Vec::new(),
+            static_fields: Vec::new(),
+            field_base_slot: 0,
+            interfaces: Vec::new(),
+        };
+
+        self.classes.push(class);
+        self.classes_by_name
+            .insert(descriptor.to_string(), class_ref);
+
+        Ok(class_ref)
     }
 
     pub fn get_class(&self, class_index: ClassRef) -> Result<&RuntimeClass, RuntimeError> {
@@ -685,7 +721,7 @@ impl VM {
     pub fn runtime_class_of(&mut self, obj_ref: ObjectRef) -> Result<ClassRef, RuntimeError> {
         match self.heap().get(obj_ref) {
             HeapEntry::Object(o) => Ok(o.class),
-            HeapEntry::Array(_) => self.resolve_class("java/lang/Object"),
+            HeapEntry::Array(o) => Ok(o.class),
         }
     }
 

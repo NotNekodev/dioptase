@@ -5,7 +5,7 @@ use crate::{
 use simd_cesu8::mutf8;
 use std::error::Error;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ConstantPool {
     pub entries: Vec<ConstantPoolEntry>,
 }

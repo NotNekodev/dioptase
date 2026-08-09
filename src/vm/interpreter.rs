@@ -1699,12 +1699,14 @@ impl Interpreter {
 
                         let length = match frame.pop_value() {
                             Some(Value::Int(n)) if n >= 0 => n as usize,
+
                             Some(Value::Int(_)) => {
                                 return Err(vm.throw(
                                     "java/lang/NegativeArraySizeException",
                                     Some("Cannot create negative sized array"),
                                 ));
                             }
+
                             other => {
                                 return Err(invalid_type!(frame.pc, "Int", other));
                             }
@@ -1713,9 +1715,17 @@ impl Interpreter {
                         let array_type = ArrayElementType::try_from(atype)
                             .map_err(|_| InternalError::InvalidArrayType { atype })?;
 
-                        let array_ref = vm.heap_mut().allocate_array(array_type, length);
+                        // [I, [J, [F, [D, [B, [C, [S, [Z
+                        let array_descriptor = format!("[{}", array_type.descriptor());
+
+                        let array_class = vm.resolve_class(&array_descriptor)?;
+
+                        let array_ref =
+                            vm.heap_mut()
+                                .allocate_array(array_class, array_type, length);
 
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+
                         frame.push_value(Value::Reference(Some(array_ref)));
                     }
 
@@ -1870,16 +1880,22 @@ impl Interpreter {
                             }
                         };
 
-                        let class_name = vm
+                        let component_name = vm
                             .get_class(frame_class)?
                             .constant_pool
                             .get_class_name(index)?;
 
-                        let component = vm.resolve_class(&class_name)?;
+                        let component_class = vm.resolve_class(&component_name)?;
 
-                        let array_ref = vm
-                            .heap_mut()
-                            .allocate_array(ArrayElementType::Reference(component), length);
+                        let array_descriptor = format!("[L{};", component_name);
+
+                        let array_class = vm.resolve_class(&array_descriptor)?;
+
+                        let array_ref = vm.heap_mut().allocate_array(
+                            array_class,
+                            ArrayElementType::Reference(component_class),
+                            length,
+                        );
 
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                         frame.push_value(Value::Reference(Some(array_ref)));
@@ -3633,7 +3649,17 @@ impl Interpreter {
                         let object_class = vm.runtime_class_of(obj_ref)?;
 
                         if !vm.is_assignable(object_class, target_class)? {
-                            return Err(vm.throw("java/lang/ClassCastException", None));
+                            return Err(vm.throw(
+                                "java/lang/ClassCastException",
+                                Some(
+                                    format!(
+                                        "Class {} cannot be cast to class {}",
+                                        vm.get_class(object_class)?.name,
+                                        target_class_name
+                                    )
+                                    .as_str(),
+                                ),
+                            ));
                         }
 
                         let frame = vm.get_thread(thread_ref)?.current_frame().ok_or(

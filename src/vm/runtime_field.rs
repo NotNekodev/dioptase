@@ -5,6 +5,7 @@ use crate::class::{
 use crate::error::RuntimeError;
 
 #[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub struct RuntimeField {
     pub name: String,
     pub descriptor: String,
