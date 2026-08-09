@@ -19,6 +19,7 @@ pub struct Thread {
     id: ThreadRef,
     name: String,
     state: ThreadState,
+    priority: usize,
 }
 
 #[allow(dead_code)]
@@ -29,6 +30,7 @@ impl Thread {
             id: id,
             name: name.into(),
             state: ThreadState::New,
+            priority: 5,
         }
     }
 
@@ -63,6 +65,14 @@ impl Thread {
 
     pub fn state(&self) -> &ThreadState {
         &self.state
+    }
+
+    pub fn priority(&self) -> usize {
+        self.priority
+    }
+
+    pub fn set_priority(&mut self, prio: usize) {
+        self.priority = prio;
     }
 
     pub fn push_frame(&mut self, frame: Frame) {

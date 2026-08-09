@@ -54,7 +54,10 @@ pub struct VM {
     primitive_classes: PrimitiveClasses,
     string_pool: HashMap<String, ObjectRef>,
     virtual_method_cache: HashMap<(ClassRef, String, String), ResolvedMethod>,
+
     thread_objects: HashMap<ThreadRef, ObjectRef>,
+    thread_by_object: HashMap<ObjectRef, ThreadRef>,
+
     main_thread_group: Option<ObjectRef>,
 }
 
@@ -87,6 +90,7 @@ impl VM {
             string_pool: HashMap::new(),
             virtual_method_cache: HashMap::new(),
             thread_objects: HashMap::new(),
+            thread_by_object: HashMap::new(),
             main_thread_group: None,
         };
 
@@ -146,7 +150,8 @@ impl VM {
         }
 
         if let Some((_, slot)) = self.find_instance_field(thread_class, "priority")? {
-            self.heap_mut().get_object_mut(obj_ref)?.fields[slot] = Value::Int(5);
+            let priority = self.get_thread(thread_ref)?.priority();
+            self.heap_mut().get_object_mut(obj_ref)?.fields[slot] = Value::Int(priority as i32);
         }
 
         let group_ref = self.main_thread_group()?;
@@ -156,7 +161,21 @@ impl VM {
         }
 
         self.thread_objects.insert(thread_ref, obj_ref);
+        self.thread_by_object.insert(obj_ref, thread_ref);
+
         Ok(obj_ref)
+    }
+
+    pub fn thread_ref_from_object(&self, object_ref: ObjectRef) -> Result<ThreadRef, RuntimeError> {
+        self.thread_by_object
+            .get(&object_ref)
+            .copied()
+            .ok_or_else(|| {
+                RuntimeError::Internal(InternalError::InvalidHeapEntry {
+                    expected: "java/lang/Thread",
+                    found: format!("{:?}", object_ref),
+                })
+            })
     }
 
     pub fn allocate_string(&mut self, s: &str) -> Result<ObjectRef, RuntimeError> {

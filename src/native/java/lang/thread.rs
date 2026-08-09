@@ -30,3 +30,22 @@ pub fn current_thread(
     let obj_ref = ctx.vm_mut().thread_object_for(thread_ref)?;
     Ok(Some(Value::Reference(Some(obj_ref))))
 }
+
+#[native(class = "java/lang/Thread", name = "setPriority0", descriptor = "(I)V")]
+pub fn set_priority0(
+    ctx: &mut NativeContext,
+    args: &[Value],
+) -> Result<Option<Value>, RuntimeError> {
+    let priority = match args.get(1) {
+        Some(Value::Int(priority)) => *priority,
+        _ => return ctx.throw("java/lang/NullPointerException", None),
+    };
+
+    let thread_ref = ctx.thread();
+
+    ctx.vm_mut()
+        .get_thread(thread_ref)?
+        .set_priority(priority as usize);
+
+    Ok(None)
+}
