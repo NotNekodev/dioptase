@@ -13,6 +13,7 @@ pub struct Object {
     pub fields: Vec<Value>,
 
     pub class_object: Option<ClassRef>,
+    pub hash_code: i32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -69,6 +70,7 @@ pub enum HeapEntry {
 #[derive(Debug)]
 pub struct Heap {
     entries: Vec<HeapEntry>,
+    next_identity_hash: i32,
 }
 
 #[allow(dead_code)]
@@ -76,6 +78,7 @@ impl Heap {
     pub fn new() -> Self {
         Self {
             entries: Vec::new(),
+            next_identity_hash: 1,
         }
     }
 
@@ -86,7 +89,10 @@ impl Heap {
             class,
             fields: vec![Value::Empty; field_slot_count],
             class_object: None,
+            hash_code: self.next_identity_hash,
         }));
+
+        self.next_identity_hash = self.next_identity_hash.wrapping_add(1);
 
         ObjectRef(id)
     }
@@ -102,7 +108,10 @@ impl Heap {
             class,
             fields: field_defaults.to_vec(),
             class_object: None,
+            hash_code: self.next_identity_hash,
         }));
+
+        self.next_identity_hash = self.next_identity_hash.wrapping_add(1);
 
         ObjectRef(id)
     }
@@ -200,7 +209,10 @@ impl Heap {
             class: class_class,
             fields: vec![Value::Empty; field_slot_count],
             class_object: Some(represented_class),
+            hash_code: self.next_identity_hash,
         }));
+
+        self.next_identity_hash = self.next_identity_hash.wrapping_add(1);
 
         ObjectRef(id)
     }
@@ -234,7 +246,11 @@ impl Heap {
             class: class_class,
             fields: field_defaults.to_vec(),
             class_object: Some(represented_class),
+            hash_code: self.next_identity_hash,
         }));
+
+        self.next_identity_hash = self.next_identity_hash.wrapping_add(1);
+
         ObjectRef(id)
     }
 }
