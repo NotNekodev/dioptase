@@ -3563,6 +3563,56 @@ impl Interpreter {
                         frame.push_value(Value::Reference(Some(obj_ref)));
                     }
 
+                    Opcode::InstanceOf => {
+                        let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
+                        frame.pc += 2;
+
+                        let (class_ref, reference) = {
+                            let frame = vm.get_thread(thread_ref)?.current_frame().ok_or(
+                                InternalError::NoCurrentFrame {
+                                    thread_id: thread_ref.0,
+                                },
+                            )?;
+
+                            let reference = match frame.pop_value() {
+                                Some(Value::Reference(r)) => r,
+                                other => {
+                                    return Err(invalid_type!(frame.pc, "Reference", other));
+                                }
+                            };
+
+                            (frame.class, reference)
+                        };
+
+                        let result = match reference {
+                            None => 0,
+
+                            Some(obj_ref) => {
+                                let target_class_name = {
+                                    let class = vm.get_class(class_ref)?;
+                                    class.constant_pool.get_class_name(index)?
+                                };
+
+                                let target_class = vm.resolve_class(&target_class_name)?;
+                                let object_class = vm.runtime_class_of(obj_ref)?;
+
+                                if vm.is_assignable(object_class, target_class)? {
+                                    1
+                                } else {
+                                    0
+                                }
+                            }
+                        };
+
+                        let frame = vm.get_thread(thread_ref)?.current_frame().ok_or(
+                            InternalError::NoCurrentFrame {
+                                thread_id: thread_ref.0,
+                            },
+                        )?;
+
+                        frame.push_value(Value::Int(result));
+                    }
+
                     Opcode::InvokeInterface => {
                         let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
                         frame.pc += 2;
