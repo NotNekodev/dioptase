@@ -3448,6 +3448,59 @@ impl Interpreter {
                         frame.push_value(Value::Int(res));
                     }
 
+                    Opcode::CheckCast => {
+                        let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
+                        frame.pc += 2;
+
+                        let (class_ref, reference) = {
+                            let frame = vm.get_thread(thread_ref)?.current_frame().ok_or(
+                                InternalError::NoCurrentFrame {
+                                    thread_id: thread_ref.0,
+                                },
+                            )?;
+
+                            let reference = match frame.pop_value() {
+                                Some(Value::Reference(r)) => r,
+                                other => {
+                                    return Err(invalid_type!(frame.pc, "Reference", other));
+                                }
+                            };
+
+                            (frame.class, reference)
+                        };
+
+                        let Some(obj_ref) = reference else {
+                            let frame = vm.get_thread(thread_ref)?.current_frame().ok_or(
+                                InternalError::NoCurrentFrame {
+                                    thread_id: thread_ref.0,
+                                },
+                            )?;
+
+                            frame.push_value(Value::Reference(None));
+                            return Ok(StepOutcome::Continue);
+                        };
+
+                        let target_class_name = {
+                            let class = vm.get_class(class_ref)?;
+                            class.constant_pool.get_class_name(index)?
+                        };
+
+                        let target_class = vm.resolve_class(&target_class_name)?;
+                        let object_class = vm.runtime_class_of(obj_ref)?;
+
+                        if !vm.is_assignable(object_class, target_class)? {
+                            return Err(vm.throw("java/lang/ClassCastException", None));
+                        }
+
+                        let frame = vm.get_thread(thread_ref)?.current_frame().ok_or(
+                            InternalError::NoCurrentFrame {
+                                thread_id: thread_ref.0,
+                            },
+                        )?;
+
+                        frame.push_value(Value::Reference(Some(obj_ref)));
+                    }
+
                     Opcode::InvokeInterface => {
                         let index = u16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
                         frame.pc += 2;
