@@ -18,6 +18,10 @@ impl Thread {
         }
     }
 
+    pub fn frames(&self) -> &Vec<Frame> {
+        &self.frames
+    }
+
     pub fn push_frame(&mut self, frame: Frame) {
         self.frames.push(frame);
     }
