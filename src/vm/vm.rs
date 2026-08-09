@@ -54,6 +54,7 @@ pub struct VM {
     primitive_classes: PrimitiveClasses,
     string_pool: HashMap<String, ObjectRef>,
     virtual_method_cache: HashMap<(ClassRef, String, String), ResolvedMethod>,
+    thread_objects: HashMap<ThreadRef, ObjectRef>,
 }
 
 #[allow(dead_code)]
@@ -84,11 +85,44 @@ impl VM {
 
             string_pool: HashMap::new(),
             virtual_method_cache: HashMap::new(),
+            thread_objects: HashMap::new(),
         };
 
         vm.bootstrap_primitives();
 
         vm
+    }
+
+    pub fn thread_object_for(&mut self, thread_ref: ThreadRef) -> Result<ObjectRef, RuntimeError> {
+        if let Some(existing) = self.thread_objects.get(&thread_ref) {
+            return Ok(*existing);
+        }
+
+        let thread_class = self.resolve_class("java/lang/Thread")?;
+        self.ensure_class_initialized(thread_class)?;
+
+        let defaults = self.default_field_values(thread_class)?;
+        let obj_ref = self
+            .heap_mut()
+            .allocate_object_typed(thread_class, &defaults);
+
+        if let Some((_, slot)) = self.find_instance_field(thread_class, "name")? {
+            let name = if thread_ref == self.main_thread {
+                "main"
+            } else {
+                "Thread"
+            };
+            let name_ref = self.allocate_string(name)?;
+            self.heap_mut().get_object_mut(obj_ref)?.fields[slot] =
+                Value::Reference(Some(name_ref));
+        }
+
+        if let Some((_, slot)) = self.find_instance_field(thread_class, "priority")? {
+            self.heap_mut().get_object_mut(obj_ref)?.fields[slot] = Value::Int(5);
+        }
+
+        self.thread_objects.insert(thread_ref, obj_ref);
+        Ok(obj_ref)
     }
 
     pub fn allocate_string(&mut self, s: &str) -> Result<ObjectRef, RuntimeError> {
