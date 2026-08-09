@@ -20,7 +20,7 @@ impl RuntimeField {
     ) -> Result<(Vec<Self>, Vec<Self>), RuntimeError> {
         let mut instance_fields = Vec::new();
         let mut static_fields = Vec::new();
-        let mut instance_slot = instance_base_slot; // <- was 0
+        let mut instance_slot = instance_base_slot;
         let mut static_slot = 0;
 
         for f in fields {

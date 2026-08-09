@@ -16,7 +16,7 @@ use crate::{
         heap::ArrayElementType,
         opcode::Opcode,
         runtime_method::{MethodBody, RuntimeMethod},
-        thread::ThreadRef,
+        thread::{ThreadRef, ThreadState},
         value::{ObjectRef, Value},
         vm::VM,
     },
@@ -31,6 +31,10 @@ pub struct Interpreter;
 
 impl Interpreter {
     pub fn run(vm: &mut VM, thread_ref: ThreadRef) -> Result<Value, RuntimeError> {
+        let thread = vm.get_thread(thread_ref)?;
+
+        debug_assert_eq!(*thread.state(), ThreadState::Runnable);
+
         loop {
             match Self::step(vm, thread_ref) {
                 Ok(StepOutcome::Continue) => continue,

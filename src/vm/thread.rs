@@ -61,6 +61,10 @@ impl Thread {
         &self.frames
     }
 
+    pub fn state(&self) -> &ThreadState {
+        &self.state
+    }
+
     pub fn push_frame(&mut self, frame: Frame) {
         self.frames.push(frame);
     }

@@ -372,6 +372,7 @@ impl VM {
         let (max_locals, max_stack) = (method.max_locals, method.max_stack);
 
         let thread = self.create_thread("static-invoke");
+        self.get_thread(thread)?.start();
         let frame = Frame::new(max_locals, max_stack, class_ref, method_idx);
         self.get_thread(thread)?.push_frame(frame);
         Interpreter::run(self, thread)
@@ -449,6 +450,7 @@ impl VM {
             let (max_locals, max_stack) = (method.max_locals, method.max_stack);
 
             let clinit_thread = self.create_thread("<clinit>");
+            self.get_thread(clinit_thread)?.start();
             let frame = Frame::new(max_locals, max_stack, class_ref, clinit_idx);
             self.get_thread(clinit_thread)?.push_frame(frame);
             Interpreter::run(self, clinit_thread)?;
@@ -506,6 +508,7 @@ impl VM {
     pub fn run_main(&mut self, main_class: &str) -> Result<Value, RuntimeError> {
         let main_thread = self.create_thread("main");
         self.main_thread = main_thread;
+        self.get_thread(main_thread)?.start();
 
         let system_class = self.resolve_class("java/lang/System")?;
         self.ensure_class_initialized(system_class)?;
@@ -810,6 +813,7 @@ impl VM {
         };
 
         let thread = self.create_thread("virtual-invoke");
+        self.get_thread(thread)?.start();
         let mut frame = Frame::new(max_locals, max_stack, resolved_class, method_idx);
         frame.locals[0] = Value::Reference(Some(receiver));
 
