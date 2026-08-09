@@ -79,7 +79,7 @@ pub fn is_alive(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value>
     let thread = ctx.vm_mut().get_thread(thread_ref)?;
 
     let is_alive = match thread.state() {
-        ThreadState::Terminated => 0,
+        ThreadState::New | ThreadState::Terminated => 0,
         _ => 1,
     };
 
