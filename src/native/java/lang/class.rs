@@ -149,3 +149,143 @@ pub fn get_name(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value>
 
     Ok(Some(Value::Reference(Some(string_ref))))
 }
+
+#[native(
+    class = "java/lang/Class",
+    name = "forName0",
+    descriptor = "(Ljava/lang/String;ZLjava/lang/ClassLoader;Ljava/lang/Class;)Ljava/lang/Class;"
+)]
+pub fn for_name0(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value>, RuntimeError> {
+    if args.len() != 4 {
+        return Err(RuntimeError::Internal(InternalError::InvalidType {
+            expected: "4 arguments to Class.forName0".to_string(),
+            found: format!("{} arguments", args.len()),
+            class: "java/lang/Class".to_string(),
+            method: "forName0".to_string(),
+            pc: 0xDEADBEEF,
+        }));
+    }
+
+    let name_ref = match args[0] {
+        Value::Reference(Some(reference)) => reference,
+
+        Value::Reference(None) => {
+            return ctx.throw("java/lang/NullPointerException", Some("class name is null"));
+        }
+
+        _ => {
+            return Err(RuntimeError::Internal(InternalError::InvalidType {
+                expected: "java/lang/String".to_string(),
+                found: format!("{:?}", args[0]),
+                class: "java/lang/Class".to_string(),
+                method: "forName0".to_string(),
+                pc: 0xDEADBEEF,
+            }));
+        }
+    };
+
+    let name = ctx.vm().java_string_to_rust(name_ref)?;
+
+    let initialize = match args[1] {
+        Value::Int(value) => value != 0,
+
+        _ => {
+            return Err(RuntimeError::Internal(InternalError::InvalidType {
+                expected: "boolean".to_string(),
+                found: format!("{:?}", args[1]),
+                class: "java/lang/Class".to_string(),
+                method: "forName0".to_string(),
+                pc: 0xDEADBEEF,
+            }));
+        }
+    };
+
+    let loader = match args[2] {
+        Value::Reference(reference) => reference,
+
+        _ => {
+            return Err(RuntimeError::Internal(InternalError::InvalidType {
+                expected: "java/lang/ClassLoader".to_string(),
+                found: format!("{:?}", args[2]),
+                class: "java/lang/Class".to_string(),
+                method: "forName0".to_string(),
+                pc: 0xDEADBEEF,
+            }));
+        }
+    };
+
+    let _caller = match args[3] {
+        Value::Reference(reference) => reference,
+
+        _ => {
+            return Err(RuntimeError::Internal(InternalError::InvalidType {
+                expected: "java/lang/Class".to_string(),
+                found: format!("{:?}", args[3]),
+                class: "java/lang/Class".to_string(),
+                method: "forName0".to_string(),
+                pc: 0xDEADBEEF,
+            }));
+        }
+    };
+
+    let internal_name = if name.starts_with('[') {
+        name.replace('.', "/")
+    } else {
+        name.replace('.', "/")
+    };
+
+    let class_object = if let Some(loader_ref) = loader {
+        let name_string = ctx.vm_mut().allocate_string(&name)?;
+
+        let result = ctx.vm_mut().invoke_virtual_to_completion(
+            loader_ref,
+            "loadClass",
+            "(Ljava/lang/String;)Ljava/lang/Class;",
+            vec![Value::Reference(Some(name_string))],
+        );
+
+        match result {
+            Ok(Value::Reference(Some(class_object))) => class_object,
+
+            Ok(Value::Reference(None)) => {
+                return ctx.throw("java/lang/ClassNotFoundException", Some(&name));
+            }
+
+            Ok(other) => {
+                return Err(RuntimeError::Internal(InternalError::InvalidType {
+                    expected: "java/lang/Class".to_string(),
+                    found: format!("{:?}", other),
+                    class: "java/lang/Class".to_string(),
+                    method: "forName0".to_string(),
+                    pc: 0xDEADBEEF,
+                }));
+            }
+
+            Err(RuntimeError::Thrown(exception)) => {
+                return Err(RuntimeError::Thrown(exception));
+            }
+
+            Err(error) => return Err(error),
+        }
+    } else {
+        let class_ref = match ctx.vm_mut().resolve_class(&internal_name) {
+            Ok(class_ref) => class_ref,
+
+            Err(RuntimeError::Internal(InternalError::ClassNotFound { .. })) => {
+                return ctx.throw("java/lang/ClassNotFoundException", Some(&name));
+            }
+
+            Err(error) => return Err(error),
+        };
+
+        ctx.vm_mut().class_object_for(class_ref)
+    };
+
+    let class_ref = ctx.vm().heap().get_class_object(class_object)?;
+
+    if initialize {
+        ctx.vm_mut().ensure_class_initialized(class_ref)?;
+    }
+
+    Ok(Some(Value::Reference(Some(class_object))))
+}
