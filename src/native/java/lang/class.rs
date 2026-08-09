@@ -1,5 +1,5 @@
 use crate::{
-    error::RuntimeError,
+    error::{InternalError, RuntimeError},
     native::native_context::NativeContext,
     vm::{
         runtime_class::ClassRef,
@@ -120,4 +120,32 @@ pub fn desired_assertion_status(
     _args: &[Value],
 ) -> Result<Option<Value>, RuntimeError> {
     Ok(Some(Value::Int(0)))
+}
+
+#[native(
+    class = "java/lang/Class",
+    name = "getName0",
+    descriptor = "()Ljava/lang/String;"
+)]
+pub fn get_name(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value>, RuntimeError> {
+    let this = match args.first() {
+        Some(Value::Reference(Some(reference))) => *reference,
+        _ => {
+            return Err(RuntimeError::Internal(InternalError::InvalidType {
+                expected: "java/lang/Class".to_string(),
+                found: "null or non-reference".to_string(),
+                class: "...".to_string(),
+                method: "java/lang/Class.getName0".to_string(),
+                pc: 0xDEADBEEF,
+            }));
+        }
+    };
+
+    let class_ref = ctx.vm().heap().get_class_object(this)?;
+
+    let name = ctx.vm().get_class(class_ref)?.name.clone();
+
+    let string_ref = ctx.vm_mut().allocate_string(&name)?;
+
+    Ok(Some(Value::Reference(Some(string_ref))))
 }
