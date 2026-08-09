@@ -105,3 +105,7 @@ fn array_index_scale(
 
     Ok(Some(Value::Int(scale)))
 }
+#[native(class = "sun/misc/Unsafe", name = "addressSize", descriptor = "()I")]
+fn address_size(_ctx: &mut NativeContext, _args: &[Value]) -> Result<Option<Value>, RuntimeError> {
+    Ok(Some(Value::Int(std::mem::size_of::<usize>() as i32)))
+}
