@@ -5,9 +5,9 @@ pub struct ThreadRef(pub usize);
 
 #[allow(dead_code)]
 pub struct Thread {
-    pub frames: Vec<Frame>,
-    pub id: ThreadRef,
-    pub name: String,
+    frames: Vec<Frame>,
+    id: ThreadRef,
+    name: String,
 }
 
 #[allow(dead_code)]
