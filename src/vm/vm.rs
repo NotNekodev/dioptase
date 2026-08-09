@@ -139,12 +139,8 @@ impl VM {
             .allocate_object_typed(thread_class, &defaults);
 
         if let Some((_, slot)) = self.find_instance_field(thread_class, "name")? {
-            let name = if thread_ref == self.main_thread {
-                "main"
-            } else {
-                "Thread"
-            };
-            let name_ref = self.allocate_string(name)?;
+            let name = self.get_thread(thread_ref)?.name().clone();
+            let name_ref = self.allocate_string(name.as_str())?;
             self.heap_mut().get_object_mut(obj_ref)?.fields[slot] =
                 Value::Reference(Some(name_ref));
         }
