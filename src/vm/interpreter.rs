@@ -1,5 +1,5 @@
 use std::{
-    ops::{BitAnd, Mul, Shl},
+    ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Shl, Sub},
     str::FromStr,
 };
 
@@ -131,6 +131,8 @@ impl Interpreter {
                 })?;
 
                 match opcode {
+                    Opcode::Nop => {}
+
                     Opcode::Bipush => {
                         let value = code[frame.pc] as i8;
                         frame.pc += 1;
@@ -148,6 +150,7 @@ impl Interpreter {
                         frame.push_value(Value::Int(value as i32));
                     }
 
+                    Opcode::IConstM1 => frame.push_value(Value::Int(-1)),
                     Opcode::IConst0 => frame.push_value(Value::Int(0)),
                     Opcode::IConst1 => frame.push_value(Value::Int(1)),
                     Opcode::IConst2 => frame.push_value(Value::Int(2)),
@@ -155,11 +158,38 @@ impl Interpreter {
                     Opcode::IConst4 => frame.push_value(Value::Int(4)),
                     Opcode::IConst5 => frame.push_value(Value::Int(5)),
 
+                    Opcode::LConst0 => frame.push_value(Value::Long(0)),
+                    Opcode::LConst1 => frame.push_value(Value::Long(0)),
+
                     Opcode::FConst0 => frame.push_value(Value::Float(0.0)),
                     Opcode::FConst1 => frame.push_value(Value::Float(1.0)),
                     Opcode::FConst2 => frame.push_value(Value::Float(2.0)),
 
+                    Opcode::DConst0 => frame.push_value(Value::Double(0.0)),
+                    Opcode::DConst1 => frame.push_value(Value::Double(0.0)),
+
                     Opcode::ILoad => {
+                        let index = code[frame.pc] as usize;
+                        frame.pc += 1;
+
+                        frame.push_value(frame.locals[index].clone())
+                    }
+
+                    Opcode::LLoad => {
+                        let index = code[frame.pc] as usize;
+                        frame.pc += 1;
+
+                        frame.push_value(frame.locals[index].clone())
+                    }
+
+                    Opcode::FLoad => {
+                        let index = code[frame.pc] as usize;
+                        frame.pc += 1;
+
+                        frame.push_value(frame.locals[index].clone())
+                    }
+
+                    Opcode::DLoad => {
                         let index = code[frame.pc] as usize;
                         frame.pc += 1;
 
@@ -171,10 +201,20 @@ impl Interpreter {
                     Opcode::ILoad2 => frame.push_value(frame.locals[2].clone()),
                     Opcode::ILoad3 => frame.push_value(frame.locals[3].clone()),
 
+                    Opcode::LLoad0 => frame.push_value(frame.locals[0].clone()),
+                    Opcode::LLoad1 => frame.push_value(frame.locals[1].clone()),
+                    Opcode::LLoad2 => frame.push_value(frame.locals[2].clone()),
+                    Opcode::LLoad3 => frame.push_value(frame.locals[3].clone()),
+
                     Opcode::FLoad0 => frame.push_value(frame.locals[0].clone()),
                     Opcode::FLoad1 => frame.push_value(frame.locals[1].clone()),
                     Opcode::FLoad2 => frame.push_value(frame.locals[2].clone()),
                     Opcode::FLoad3 => frame.push_value(frame.locals[3].clone()),
+
+                    Opcode::DLoad0 => frame.push_value(frame.locals[0].clone()),
+                    Opcode::DLoad1 => frame.push_value(frame.locals[1].clone()),
+                    Opcode::DLoad2 => frame.push_value(frame.locals[2].clone()),
+                    Opcode::DLoad3 => frame.push_value(frame.locals[3].clone()),
 
                     Opcode::ALoad => {
                         let index = code[frame.pc] as usize;
@@ -227,6 +267,33 @@ impl Interpreter {
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
                     }
 
+                    Opcode::LStore => {
+                        let index = code[frame.pc] as usize;
+                        frame.pc += 1;
+
+                        frame.locals[index] = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
+                    }
+
+                    Opcode::FStore => {
+                        let index = code[frame.pc] as usize;
+                        frame.pc += 1;
+
+                        frame.locals[index] = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
+                    }
+
+                    Opcode::DStore => {
+                        let index = code[frame.pc] as usize;
+                        frame.pc += 1;
+
+                        frame.locals[index] = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
+                    }
+
                     Opcode::IStore0 => {
                         frame.locals[0] = frame
                             .pop_value()
@@ -243,6 +310,69 @@ impl Interpreter {
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
                     }
                     Opcode::IStore3 => {
+                        frame.locals[3] = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
+                    }
+
+                    Opcode::LStore0 => {
+                        frame.locals[0] = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
+                    }
+                    Opcode::LStore1 => {
+                        frame.locals[1] = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
+                    }
+                    Opcode::LStore2 => {
+                        frame.locals[2] = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
+                    }
+                    Opcode::LStore3 => {
+                        frame.locals[3] = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
+                    }
+
+                    Opcode::FStore0 => {
+                        frame.locals[0] = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
+                    }
+                    Opcode::FStore1 => {
+                        frame.locals[1] = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
+                    }
+                    Opcode::FStore2 => {
+                        frame.locals[2] = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
+                    }
+                    Opcode::FStore3 => {
+                        frame.locals[3] = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
+                    }
+
+                    Opcode::DStore0 => {
+                        frame.locals[0] = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
+                    }
+                    Opcode::DStore1 => {
+                        frame.locals[1] = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
+                    }
+                    Opcode::DStore2 => {
+                        frame.locals[2] = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
+                    }
+                    Opcode::DStore3 => {
                         frame.locals[3] = frame
                             .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?
@@ -293,6 +423,42 @@ impl Interpreter {
                         }
                     }
 
+                    Opcode::FAdd => {
+                        let value2 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+                        let value1 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match (value1, value2) {
+                            (Value::Float(x), Value::Float(y)) => {
+                                frame.push_value(Value::Float(x.add(y)));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "(Float, Float)", other));
+                            }
+                        }
+                    }
+
+                    Opcode::DAdd => {
+                        let value2 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+                        let value1 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match (value1, value2) {
+                            (Value::Double(x), Value::Double(y)) => {
+                                frame.push_value(Value::Double(x.add(y)));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "(Double, Double)", other));
+                            }
+                        }
+                    }
+
                     Opcode::ISub => {
                         let value2 = frame
                             .pop_value()
@@ -307,6 +473,60 @@ impl Interpreter {
                             }
                             other => {
                                 return Err(invalid_type!(frame.pc, "(Int, Int)", other));
+                            }
+                        }
+                    }
+
+                    Opcode::LSub => {
+                        let value2 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+                        let value1 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match (value1, value2) {
+                            (Value::Long(x), Value::Long(y)) => {
+                                frame.push_value(Value::Long(x.wrapping_sub(y)));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "(Long, Long)", other));
+                            }
+                        }
+                    }
+
+                    Opcode::FSub => {
+                        let value2 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+                        let value1 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match (value1, value2) {
+                            (Value::Float(x), Value::Float(y)) => {
+                                frame.push_value(Value::Float(x.sub(y)));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "(Float, Float)", other));
+                            }
+                        }
+                    }
+
+                    Opcode::DSub => {
+                        let value2 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+                        let value1 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match (value1, value2) {
+                            (Value::Double(x), Value::Double(y)) => {
+                                frame.push_value(Value::Double(x.sub(y)));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "(Double, Double)", other));
                             }
                         }
                     }
@@ -329,6 +549,24 @@ impl Interpreter {
                         }
                     }
 
+                    Opcode::LMul => {
+                        let value2 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+                        let value1 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match (value1, value2) {
+                            (Value::Long(x), Value::Long(y)) => {
+                                frame.push_value(Value::Long(x.wrapping_mul(y)));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "(Long, Long)", other));
+                            }
+                        }
+                    }
+
                     Opcode::FMul => {
                         let value2 = frame
                             .pop_value()
@@ -343,6 +581,96 @@ impl Interpreter {
                             }
                             other => {
                                 return Err(invalid_type!(frame.pc, "(Float, Float)", other));
+                            }
+                        }
+                    }
+
+                    Opcode::DMul => {
+                        let value2 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+                        let value1 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match (value1, value2) {
+                            (Value::Double(x), Value::Double(y)) => {
+                                frame.push_value(Value::Double(x.mul(y)));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "(Double, Double)", other));
+                            }
+                        }
+                    }
+
+                    Opcode::IDiv => {
+                        let value2 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+                        let value1 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match (value1, value2) {
+                            (Value::Int(x), Value::Int(y)) => {
+                                frame.push_value(Value::Int(x.wrapping_div(y)));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "(Int, Int)", other));
+                            }
+                        }
+                    }
+
+                    Opcode::LDiv => {
+                        let value2 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+                        let value1 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match (value1, value2) {
+                            (Value::Long(x), Value::Long(y)) => {
+                                frame.push_value(Value::Long(x.wrapping_div(y)));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "(Long, Long)", other));
+                            }
+                        }
+                    }
+
+                    Opcode::FDiv => {
+                        let value2 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+                        let value1 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match (value1, value2) {
+                            (Value::Float(x), Value::Float(y)) => {
+                                frame.push_value(Value::Float(x.div(y)));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "(Float, Float)", other));
+                            }
+                        }
+                    }
+
+                    Opcode::DDiv => {
+                        let value2 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+                        let value1 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match (value1, value2) {
+                            (Value::Double(x), Value::Double(y)) => {
+                                frame.push_value(Value::Double(x.div(y)));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "(Double, Double)", other));
                             }
                         }
                     }
@@ -951,6 +1279,126 @@ impl Interpreter {
                         }
                     }
 
+                    Opcode::I2D => {
+                        let value = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match value {
+                            Value::Int(val) => {
+                                frame.push_value(Value::Double(val as f64));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        }
+                    }
+
+                    Opcode::L2I => {
+                        let value = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match value {
+                            Value::Long(val) => {
+                                frame.push_value(Value::Int(val as i32));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Long", other));
+                            }
+                        }
+                    }
+
+                    Opcode::L2F => {
+                        let value = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match value {
+                            Value::Long(val) => {
+                                frame.push_value(Value::Float(val as f32));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Long", other));
+                            }
+                        }
+                    }
+
+                    Opcode::L2D => {
+                        let value = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match value {
+                            Value::Long(val) => {
+                                frame.push_value(Value::Double(val as f64));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Long", other));
+                            }
+                        }
+                    }
+
+                    Opcode::F2L => {
+                        let value = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match value {
+                            Value::Float(val) => {
+                                frame.push_value(Value::Long(val as i64));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Float", other));
+                            }
+                        }
+                    }
+
+                    Opcode::F2D => {
+                        let value = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match value {
+                            Value::Float(val) => {
+                                frame.push_value(Value::Double(val as f64));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Float", other));
+                            }
+                        }
+                    }
+
+                    Opcode::D2L => {
+                        let value = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match value {
+                            Value::Double(val) => {
+                                frame.push_value(Value::Long(val as i64));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Double", other));
+                            }
+                        }
+                    }
+
+                    Opcode::D2F => {
+                        let value = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match value {
+                            Value::Double(val) => {
+                                frame.push_value(Value::Float(val as f32));
+                            }
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Double", other));
+                            }
+                        }
+                    }
+
                     Opcode::Goto => {
                         let opcode_pc = frame.pc - 1;
                         let offset = i16::from_be_bytes([code[frame.pc], code[frame.pc + 1]]);
@@ -1160,8 +1608,26 @@ impl Interpreter {
                     }
 
                     Opcode::Pop => {
+                        let v = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+                        if matches!(v, Value::Long(_) | Value::Double(_)) {
+                            return Err(vm.throw(
+                                "java/lang/InternalException",
+                                Some("`pop` called on a category 2 computational type"),
+                            ));
+                        }
+                    }
+
+                    Opcode::Pop2 => {
                         let _ = frame
-                            .pop_value()
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+                        let _ = frame
+                            .operand_stack
+                            .pop()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
                     }
 
@@ -1189,6 +1655,140 @@ impl Interpreter {
 
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                         frame.push_value(Value::Reference(Some(array_ref)));
+                    }
+
+                    Opcode::DupX1 => {
+                        // ..., w2, w1 -> ..., w1, w2, w1
+
+                        let w1 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        let w2 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        frame.operand_stack.push(w1.clone());
+                        frame.operand_stack.push(w2);
+                        frame.operand_stack.push(w1);
+                    }
+
+                    Opcode::DupX2 => {
+                        // ..., w3, w2, w1 -> ..., w1, w3, w2, w1
+
+                        let w1 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        let w2 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        let w3 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        frame.operand_stack.push(w1.clone());
+                        frame.operand_stack.push(w3);
+                        frame.operand_stack.push(w2);
+                        frame.operand_stack.push(w1);
+                    }
+
+                    Opcode::Dup2 => {
+                        // ..., w2, w1 -> ..., w2, w1, w2, w1
+
+                        let w1 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        let w2 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        frame.operand_stack.push(w2.clone());
+                        frame.operand_stack.push(w1.clone());
+                        frame.operand_stack.push(w2);
+                        frame.operand_stack.push(w1);
+                    }
+
+                    Opcode::Dup2X1 => {
+                        // ..., w3, w2, w1 -> ..., w2, w1, w3, w2, w1
+
+                        let w1 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        let w2 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        let w3 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        frame.operand_stack.push(w2.clone());
+                        frame.operand_stack.push(w1.clone());
+                        frame.operand_stack.push(w3);
+                        frame.operand_stack.push(w2);
+                        frame.operand_stack.push(w1);
+                    }
+
+                    Opcode::Dup2X2 => {
+                        // ..., w4, w3, w2, w1 -> ..., w2, w1, w4, w3, w2, w1
+
+                        let w1 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        let w2 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        let w3 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        let w4 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        frame.operand_stack.push(w2.clone());
+                        frame.operand_stack.push(w1.clone());
+                        frame.operand_stack.push(w4);
+                        frame.operand_stack.push(w3);
+                        frame.operand_stack.push(w2);
+                        frame.operand_stack.push(w1);
+                    }
+
+                    Opcode::Swap => {
+                        // ..., w2, w1 -> ..., w1, w2
+
+                        let w1 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        let w2 = frame
+                            .operand_stack
+                            .pop()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        frame.operand_stack.push(w1);
+                        frame.operand_stack.push(w2);
                     }
 
                     Opcode::ANewArray => {
@@ -1333,6 +1933,286 @@ impl Interpreter {
 
                         let array = vm.heap_mut().get_array_mut(reference)?;
                         array.elements[index] = Value::Int(value);
+                    }
+
+                    Opcode::LAStore => {
+                        let value = match frame.pop_value() {
+                            Some(Value::Long(n)) => n as i64,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Long", other));
+                            }
+                        };
+
+                        let index = match frame.pop_value() {
+                            Some(Value::Int(n)) => n as usize,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let arrayref = match frame.pop_value() {
+                            Some(Value::Reference(aref)) => aref,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let reference = match arrayref {
+                            Some(value) => value,
+                            None => {
+                                return Err(vm.throw(
+                                    "java/lang/NullPointerException",
+                                    Some(&format!(
+                                        "Tried to access index {} on a `null` array",
+                                        index
+                                    )),
+                                ));
+                            }
+                        };
+
+                        {
+                            let len = {
+                                let array = vm.heap_mut().get_array_mut(reference)?;
+                                array.elements.len()
+                            };
+
+                            if index >= len {
+                                return Err(vm.throw(
+                                    "java/lang/ArrayIndexOutOfBoundsException",
+                                    Some(&format!(
+                                        "Index {} out of bounds for length {}",
+                                        index, len
+                                    )),
+                                ));
+                            }
+                        }
+
+                        let array = vm.heap_mut().get_array_mut(reference)?;
+                        array.elements[index] = Value::Long(value);
+                    }
+
+                    Opcode::FAStore => {
+                        let value = match frame.pop_value() {
+                            Some(Value::Float(n)) => n as f32,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Float", other));
+                            }
+                        };
+
+                        let index = match frame.pop_value() {
+                            Some(Value::Int(n)) => n as usize,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let arrayref = match frame.pop_value() {
+                            Some(Value::Reference(aref)) => aref,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let reference = match arrayref {
+                            Some(value) => value,
+                            None => {
+                                return Err(vm.throw(
+                                    "java/lang/NullPointerException",
+                                    Some(&format!(
+                                        "Tried to access index {} on a `null` array",
+                                        index
+                                    )),
+                                ));
+                            }
+                        };
+
+                        {
+                            let len = {
+                                let array = vm.heap_mut().get_array_mut(reference)?;
+                                array.elements.len()
+                            };
+
+                            if index >= len {
+                                return Err(vm.throw(
+                                    "java/lang/ArrayIndexOutOfBoundsException",
+                                    Some(&format!(
+                                        "Index {} out of bounds for length {}",
+                                        index, len
+                                    )),
+                                ));
+                            }
+                        }
+
+                        let array = vm.heap_mut().get_array_mut(reference)?;
+                        array.elements[index] = Value::Float(value);
+                    }
+
+                    Opcode::DAStore => {
+                        let value = match frame.pop_value() {
+                            Some(Value::Double(n)) => n as f64,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Double", other));
+                            }
+                        };
+
+                        let index = match frame.pop_value() {
+                            Some(Value::Int(n)) => n as usize,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let arrayref = match frame.pop_value() {
+                            Some(Value::Reference(aref)) => aref,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let reference = match arrayref {
+                            Some(value) => value,
+                            None => {
+                                return Err(vm.throw(
+                                    "java/lang/NullPointerException",
+                                    Some(&format!(
+                                        "Tried to access index {} on a `null` array",
+                                        index
+                                    )),
+                                ));
+                            }
+                        };
+
+                        {
+                            let len = {
+                                let array = vm.heap_mut().get_array_mut(reference)?;
+                                array.elements.len()
+                            };
+
+                            if index >= len {
+                                return Err(vm.throw(
+                                    "java/lang/ArrayIndexOutOfBoundsException",
+                                    Some(&format!(
+                                        "Index {} out of bounds for length {}",
+                                        index, len
+                                    )),
+                                ));
+                            }
+                        }
+
+                        let array = vm.heap_mut().get_array_mut(reference)?;
+                        array.elements[index] = Value::Double(value);
+                    }
+
+                    Opcode::BAStore => {
+                        let value = match frame.pop_value() {
+                            Some(Value::Int(n)) => n as i32, // both booleans and bytes are represented by integers
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int (Byte | Boolean)", other));
+                            }
+                        };
+
+                        let index = match frame.pop_value() {
+                            Some(Value::Int(n)) => n as usize,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let arrayref = match frame.pop_value() {
+                            Some(Value::Reference(aref)) => aref,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let reference = match arrayref {
+                            Some(value) => value,
+                            None => {
+                                return Err(vm.throw(
+                                    "java/lang/NullPointerException",
+                                    Some(&format!(
+                                        "Tried to access index {} on a `null` array",
+                                        index
+                                    )),
+                                ));
+                            }
+                        };
+
+                        {
+                            let len = {
+                                let array = vm.heap_mut().get_array_mut(reference)?;
+                                array.elements.len()
+                            };
+
+                            if index >= len {
+                                return Err(vm.throw(
+                                    "java/lang/ArrayIndexOutOfBoundsException",
+                                    Some(&format!(
+                                        "Index {} out of bounds for length {}",
+                                        index, len
+                                    )),
+                                ));
+                            }
+                        }
+
+                        let array = vm.heap_mut().get_array_mut(reference)?;
+                        array.elements[index] = Value::Int(value); // both booleans and bytes are represented by integers
+                    }
+
+                    Opcode::SAStore => {
+                        let value = match frame.pop_value() {
+                            Some(Value::Int(n)) => n as i32, // shorts are represented using integers
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int (Short)", other));
+                            }
+                        };
+
+                        let index = match frame.pop_value() {
+                            Some(Value::Int(n)) => n as usize,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let arrayref = match frame.pop_value() {
+                            Some(Value::Reference(aref)) => aref,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let reference = match arrayref {
+                            Some(value) => value,
+                            None => {
+                                return Err(vm.throw(
+                                    "java/lang/NullPointerException",
+                                    Some(&format!(
+                                        "Tried to access index {} on a `null` array",
+                                        index
+                                    )),
+                                ));
+                            }
+                        };
+
+                        {
+                            let len = {
+                                let array = vm.heap_mut().get_array_mut(reference)?;
+                                array.elements.len()
+                            };
+
+                            if index >= len {
+                                return Err(vm.throw(
+                                    "java/lang/ArrayIndexOutOfBoundsException",
+                                    Some(&format!(
+                                        "Index {} out of bounds for length {}",
+                                        index, len
+                                    )),
+                                ));
+                            }
+                        }
+
+                        let array = vm.heap_mut().get_array_mut(reference)?;
+                        array.elements[index] = Value::Int(value); // shorts are represented using integers
                     }
 
                     Opcode::IALoad => {
@@ -1567,6 +2447,256 @@ impl Interpreter {
                     }
 
                     Opcode::AALoad => {
+                        let index = match frame.pop_value() {
+                            Some(Value::Int(aref)) => aref,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let arrayref = match frame.pop_value() {
+                            Some(Value::Reference(aref)) => aref,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Reference", other));
+                            }
+                        };
+
+                        let reference = match arrayref {
+                            Some(value) => value,
+                            None => {
+                                return Err(vm.throw(
+                                    "java/lang/NullPointerException",
+                                    Some(&format!(
+                                        "Tried to access index {} on a `null` array",
+                                        index
+                                    )),
+                                ));
+                            }
+                        };
+
+                        let value = {
+                            let array = vm.heap().get_array(reference)?;
+
+                            match array.elements.get(index as usize) {
+                                Some(v) => v.clone(),
+                                None => {
+                                    return Err(vm.throw(
+                                        "java/lang/ArrayIndexOutOfBoundsException",
+                                        Some(&format!(
+                                            "Index {} out of bounds for length {}",
+                                            index,
+                                            array.elements.len()
+                                        )),
+                                    ));
+                                }
+                            }
+                        };
+
+                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                        frame.push_value(value);
+                    }
+
+                    Opcode::FALoad => {
+                        let index = match frame.pop_value() {
+                            Some(Value::Int(aref)) => aref,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let arrayref = match frame.pop_value() {
+                            Some(Value::Reference(aref)) => aref,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Reference", other));
+                            }
+                        };
+
+                        let reference = match arrayref {
+                            Some(value) => value,
+                            None => {
+                                return Err(vm.throw(
+                                    "java/lang/NullPointerException",
+                                    Some(&format!(
+                                        "Tried to access index {} on a `null` array",
+                                        index
+                                    )),
+                                ));
+                            }
+                        };
+
+                        let value = {
+                            let array = vm.heap().get_array(reference)?;
+
+                            match array.elements.get(index as usize) {
+                                Some(v) => v.clone(),
+                                None => {
+                                    return Err(vm.throw(
+                                        "java/lang/ArrayIndexOutOfBoundsException",
+                                        Some(&format!(
+                                            "Index {} out of bounds for length {}",
+                                            index,
+                                            array.elements.len()
+                                        )),
+                                    ));
+                                }
+                            }
+                        };
+
+                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                        frame.push_value(value);
+                    }
+
+                    Opcode::DALoad => {
+                        let index = match frame.pop_value() {
+                            Some(Value::Int(aref)) => aref,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let arrayref = match frame.pop_value() {
+                            Some(Value::Reference(aref)) => aref,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Reference", other));
+                            }
+                        };
+
+                        let reference = match arrayref {
+                            Some(value) => value,
+                            None => {
+                                return Err(vm.throw(
+                                    "java/lang/NullPointerException",
+                                    Some(&format!(
+                                        "Tried to access index {} on a `null` array",
+                                        index
+                                    )),
+                                ));
+                            }
+                        };
+
+                        let value = {
+                            let array = vm.heap().get_array(reference)?;
+
+                            match array.elements.get(index as usize) {
+                                Some(v) => v.clone(),
+                                None => {
+                                    return Err(vm.throw(
+                                        "java/lang/ArrayIndexOutOfBoundsException",
+                                        Some(&format!(
+                                            "Index {} out of bounds for length {}",
+                                            index,
+                                            array.elements.len()
+                                        )),
+                                    ));
+                                }
+                            }
+                        };
+
+                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                        frame.push_value(value);
+                    }
+
+                    Opcode::BALoad => {
+                        let index = match frame.pop_value() {
+                            Some(Value::Int(aref)) => aref,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let arrayref = match frame.pop_value() {
+                            Some(Value::Reference(aref)) => aref,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Reference", other));
+                            }
+                        };
+
+                        let reference = match arrayref {
+                            Some(value) => value,
+                            None => {
+                                return Err(vm.throw(
+                                    "java/lang/NullPointerException",
+                                    Some(&format!(
+                                        "Tried to access index {} on a `null` array",
+                                        index
+                                    )),
+                                ));
+                            }
+                        };
+
+                        let value = {
+                            let array = vm.heap().get_array(reference)?;
+
+                            match array.elements.get(index as usize) {
+                                Some(v) => v.clone(),
+                                None => {
+                                    return Err(vm.throw(
+                                        "java/lang/ArrayIndexOutOfBoundsException",
+                                        Some(&format!(
+                                            "Index {} out of bounds for length {}",
+                                            index,
+                                            array.elements.len()
+                                        )),
+                                    ));
+                                }
+                            }
+                        };
+
+                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                        frame.push_value(value);
+                    }
+
+                    Opcode::SALoad => {
+                        let index = match frame.pop_value() {
+                            Some(Value::Int(aref)) => aref,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let arrayref = match frame.pop_value() {
+                            Some(Value::Reference(aref)) => aref,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Reference", other));
+                            }
+                        };
+
+                        let reference = match arrayref {
+                            Some(value) => value,
+                            None => {
+                                return Err(vm.throw(
+                                    "java/lang/NullPointerException",
+                                    Some(&format!(
+                                        "Tried to access index {} on a `null` array",
+                                        index
+                                    )),
+                                ));
+                            }
+                        };
+
+                        let value = {
+                            let array = vm.heap().get_array(reference)?;
+
+                            match array.elements.get(index as usize) {
+                                Some(v) => v.clone(),
+                                None => {
+                                    return Err(vm.throw(
+                                        "java/lang/ArrayIndexOutOfBoundsException",
+                                        Some(&format!(
+                                            "Index {} out of bounds for length {}",
+                                            index,
+                                            array.elements.len()
+                                        )),
+                                    ));
+                                }
+                            }
+                        };
+
+                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                        frame.push_value(value);
+                    }
+
+                    Opcode::LALoad => {
                         let index = match frame.pop_value() {
                             Some(Value::Int(aref)) => aref,
                             other => {
@@ -1950,6 +3080,135 @@ impl Interpreter {
                         frame.push_value(Value::Int(res));
                     }
 
+                    Opcode::LRem => {
+                        let value2 = match frame.pop_value() {
+                            Some(Value::Long(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Long", other));
+                            }
+                        };
+
+                        let value1 = match frame.pop_value() {
+                            Some(Value::Long(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Long", other));
+                            }
+                        };
+
+                        if value2 == 0 {
+                            return Err(vm.throw(
+                                "java/lang/ArithmeticException",
+                                Some("Tried to device by 0 on `lrem`"),
+                            ));
+                        }
+
+                        let res = value1 - (value1 / value2) * value2;
+
+                        frame.push_value(Value::Long(res));
+                    }
+
+                    Opcode::FRem => {
+                        let value2 = match frame.pop_value() {
+                            Some(Value::Float(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Float", other));
+                            }
+                        };
+
+                        let value1 = match frame.pop_value() {
+                            Some(Value::Float(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Float", other));
+                            }
+                        };
+
+                        if value2 == 0.0 {
+                            return Err(vm.throw(
+                                "java/lang/ArithmeticException",
+                                Some("Tried to device by 0 on `frem`"),
+                            ));
+                        }
+
+                        let res = value1 - (value1 / value2) * value2;
+
+                        frame.push_value(Value::Float(res));
+                    }
+
+                    Opcode::DRem => {
+                        let value2 = match frame.pop_value() {
+                            Some(Value::Double(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Double", other));
+                            }
+                        };
+
+                        let value1 = match frame.pop_value() {
+                            Some(Value::Double(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Double", other));
+                            }
+                        };
+
+                        if value2 == 0.0 {
+                            return Err(vm.throw(
+                                "java/lang/ArithmeticException",
+                                Some("Tried to device by 0 on `drem`"),
+                            ));
+                        }
+
+                        let res = value1 - (value1 / value2) * value2;
+
+                        frame.push_value(Value::Double(res));
+                    }
+
+                    Opcode::INeg => {
+                        let value = match frame.pop_value() {
+                            Some(Value::Int(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let res = value.wrapping_neg();
+                        frame.push_value(Value::Int(res));
+                    }
+
+                    Opcode::LNeg => {
+                        let value = match frame.pop_value() {
+                            Some(Value::Long(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Long", other));
+                            }
+                        };
+
+                        let res = value.wrapping_neg();
+                        frame.push_value(Value::Long(res));
+                    }
+
+                    Opcode::FNeg => {
+                        let value = match frame.pop_value() {
+                            Some(Value::Float(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Float", other));
+                            }
+                        };
+
+                        let res = value.neg();
+                        frame.push_value(Value::Float(res));
+                    }
+
+                    Opcode::DNeg => {
+                        let value = match frame.pop_value() {
+                            Some(Value::Double(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Double", other));
+                            }
+                        };
+
+                        let res = value.neg();
+                        frame.push_value(Value::Double(res));
+                    }
+
                     Opcode::LShl => {
                         let value2 = match frame.pop_value() {
                             Some(Value::Int(i)) => i,
@@ -1990,6 +3249,90 @@ impl Interpreter {
                         frame.push_value(Value::Int(res));
                     }
 
+                    Opcode::LShr => {
+                        let value2 = match frame.pop_value() {
+                            Some(Value::Int(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let value1 = match frame.pop_value() {
+                            Some(Value::Long(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Long", other));
+                            }
+                        };
+
+                        let shift = (value2 as u32) & 0x3f;
+                        let res = value1 >> shift;
+
+                        frame.push_value(Value::Long(res));
+                    }
+
+                    Opcode::IShr => {
+                        let value2 = match frame.pop_value() {
+                            Some(Value::Int(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let value1 = match frame.pop_value() {
+                            Some(Value::Int(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let shift = (value2 as u32) & 0x1f;
+                        let res = value1 >> shift;
+
+                        frame.push_value(Value::Int(res));
+                    }
+
+                    Opcode::LUShr => {
+                        let value2 = match frame.pop_value() {
+                            Some(Value::Int(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let value1 = match frame.pop_value() {
+                            Some(Value::Long(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Long", other));
+                            }
+                        };
+
+                        let shift = (value2 as u32) & 0x3f;
+                        let res = (value1 as u64) >> shift;
+
+                        frame.push_value(Value::Long(res as i64));
+                    }
+
+                    Opcode::IUShr => {
+                        let value2 = match frame.pop_value() {
+                            Some(Value::Int(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let value1 = match frame.pop_value() {
+                            Some(Value::Int(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let shift = (value2 as u32) & 0x1f;
+                        let res = (value1 as u32) >> shift;
+
+                        frame.push_value(Value::Int(res as i32));
+                    }
+
                     Opcode::LAnd => {
                         let value2 = match frame.pop_value() {
                             Some(Value::Long(i)) => i,
@@ -2026,6 +3369,86 @@ impl Interpreter {
                         };
 
                         let res = value1.bitand(value2);
+
+                        frame.push_value(Value::Int(res));
+                    }
+
+                    Opcode::LOr => {
+                        let value2 = match frame.pop_value() {
+                            Some(Value::Long(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Long", other));
+                            }
+                        };
+
+                        let value1 = match frame.pop_value() {
+                            Some(Value::Long(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Long", other));
+                            }
+                        };
+
+                        let res = value1.bitor(value2);
+
+                        frame.push_value(Value::Long(res));
+                    }
+
+                    Opcode::IOr => {
+                        let value2 = match frame.pop_value() {
+                            Some(Value::Int(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let value1 = match frame.pop_value() {
+                            Some(Value::Int(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let res = value1.bitor(value2);
+
+                        frame.push_value(Value::Int(res));
+                    }
+
+                    Opcode::LXor => {
+                        let value2 = match frame.pop_value() {
+                            Some(Value::Long(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Long", other));
+                            }
+                        };
+
+                        let value1 = match frame.pop_value() {
+                            Some(Value::Long(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Long", other));
+                            }
+                        };
+
+                        let res = value1.bitxor(value2);
+
+                        frame.push_value(Value::Long(res));
+                    }
+
+                    Opcode::IXor => {
+                        let value2 = match frame.pop_value() {
+                            Some(Value::Int(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let value1 = match frame.pop_value() {
+                            Some(Value::Int(i)) => i,
+                            other => {
+                                return Err(invalid_type!(frame.pc, "Int", other));
+                            }
+                        };
+
+                        let res = value1.bitxor(value2);
 
                         frame.push_value(Value::Int(res));
                     }
