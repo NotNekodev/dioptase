@@ -45,3 +45,46 @@ pub fn hash_code(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value
 
     Ok(Some(Value::Int(hash)))
 }
+
+#[native(
+    class = "java/lang/Object",
+    name = "getClass",
+    descriptor = "()Ljava/lang/Class;"
+)]
+pub fn get_class(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value>, RuntimeError> {
+    if args.len() != 1 {
+        return Err(RuntimeError::Internal(InternalError::InvalidType {
+            expected: "1 argument to Object.getClass".to_string(),
+            found: format!("{} arguments", args.len()),
+            class: "java/lang/Object".to_string(),
+            method: "getClass".to_string(),
+            pc: 0xDEADBEEF,
+        }));
+    }
+
+    let object_ref = match args[0] {
+        Value::Reference(Some(object_ref)) => object_ref,
+
+        Value::Reference(None) => {
+            return ctx.throw(
+                "java/lang/NullPointerException",
+                Some("Cannot invoke Object.getClass() on null"),
+            );
+        }
+
+        ref other => {
+            return Err(RuntimeError::Internal(InternalError::InvalidType {
+                expected: "object reference".to_string(),
+                found: format!("{:?}", other),
+                class: "java/lang/Object".to_string(),
+                method: "getClass".to_string(),
+                pc: 0xDEADBEEF,
+            }));
+        }
+    };
+
+    let runtime_class = ctx.vm_mut().runtime_class_of(object_ref)?;
+    let class_object = ctx.vm_mut().class_object_for(runtime_class);
+
+    Ok(Some(Value::Reference(Some(class_object))))
+}
