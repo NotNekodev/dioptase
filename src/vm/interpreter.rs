@@ -3846,11 +3846,23 @@ impl Interpreter {
                     }
 
                     Opcode::MonitorEnter => {
-                        frame.pc += 1;
+                        let obj = frame.pop_value();
+
+                        // TODO: implement monitors (reentrant locks on objects)
+                        println!(
+                            "TODO: Implement locking in MonitorEnter! (object={:?})",
+                            obj
+                        );
                     }
 
                     Opcode::MonitorExit => {
-                        frame.pc += 1;
+                        let obj = frame.pop_value();
+
+                        // TODO: implement monitors (reentrant locks on objects)
+                        println!(
+                            "TODO: Implement unlocking in MonitorExit! (object={:?})",
+                            obj
+                        );
                     }
 
                     Opcode::InvokeInterface => {
