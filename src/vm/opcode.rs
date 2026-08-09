@@ -163,6 +163,8 @@ pub enum Opcode {
     IfICmpGe = 0xa2,
     IfICmpGt = 0xa3,
     IfICmpLe = 0xa4,
+    IfACmpEq = 0xa5,
+    IfACmpNe = 0xa6,
 
     Goto = 0xa7,
     IReturn = 0xac,
@@ -356,6 +358,8 @@ impl TryFrom<u8> for Opcode {
             0xa2 => Ok(Self::IfICmpGe),
             0xa3 => Ok(Self::IfICmpGt),
             0xa4 => Ok(Self::IfICmpLe),
+            0xa5 => Ok(Self::IfACmpEq),
+            0xa6 => Ok(Self::IfACmpNe),
 
             0xa7 => Ok(Self::Goto),
             0xac => Ok(Self::IReturn),

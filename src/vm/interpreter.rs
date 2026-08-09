@@ -823,6 +823,37 @@ impl Interpreter {
                         }
                     }
 
+                    Opcode::IfACmpEq => {
+                        let opcode_pc = frame.pc - 1;
+                        let branchbyte1 = code[frame.pc];
+                        frame.pc += 1;
+                        let branchbyte2 = code[frame.pc];
+                        frame.pc += 1;
+                        let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
+
+                        let value2 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+                        let value1 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match (value1, value2) {
+                            (Value::Reference(value1), Value::Reference(value2)) => {
+                                if value1 == value2 {
+                                    frame.pc = branch_ip as usize + opcode_pc
+                                }
+                            }
+                            other => {
+                                return Err(invalid_type!(
+                                    frame.pc,
+                                    "(Reference, Reference)",
+                                    other
+                                ));
+                            }
+                        }
+                    }
+
                     Opcode::IfICmpNe => {
                         let opcode_pc = frame.pc - 1;
                         let branchbyte1 = code[frame.pc];
@@ -846,6 +877,37 @@ impl Interpreter {
                             }
                             other => {
                                 return Err(invalid_type!(frame.pc, "(Int, Int)", other));
+                            }
+                        }
+                    }
+
+                    Opcode::IfACmpNe => {
+                        let opcode_pc = frame.pc - 1;
+                        let branchbyte1 = code[frame.pc];
+                        frame.pc += 1;
+                        let branchbyte2 = code[frame.pc];
+                        frame.pc += 1;
+                        let branch_ip: i16 = i16::from_be_bytes([branchbyte1, branchbyte2]);
+
+                        let value2 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+                        let value1 = frame
+                            .pop_value()
+                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
+
+                        match (value1, value2) {
+                            (Value::Reference(value1), Value::Reference(value2)) => {
+                                if value1 != value2 {
+                                    frame.pc = branch_ip as usize + opcode_pc
+                                }
+                            }
+                            other => {
+                                return Err(invalid_type!(
+                                    frame.pc,
+                                    "(Reference, Reference)",
+                                    other
+                                ));
                             }
                         }
                     }
