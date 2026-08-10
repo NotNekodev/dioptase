@@ -1,4 +1,4 @@
-use std::{rc::Rc, str::FromStr};
+use std::{str::FromStr, sync::Arc};
 
 use jdescriptor::{MethodDescriptor, TypeDescriptor};
 
@@ -22,7 +22,7 @@ pub struct RuntimeExceptionHandler {
 
 #[derive(Clone, Debug)]
 pub enum MethodBody {
-    Bytecode(Rc<[u8]>),
+    Bytecode(Arc<[u8]>),
     Native,
     Abstract,
     Unknown,
