@@ -1,5 +1,8 @@
+use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::{Arc, Mutex, RwLock};
+
 use crate::{
-    error::RuntimeError,
+    error::{InternalError, RuntimeError},
     vm::{
         runtime_class::ClassRef,
         value::{ObjectRef, Value},
@@ -63,7 +66,6 @@ impl TryFrom<u8> for ArrayElementType {
             10 => Ok(ArrayElementType::Int),
             11 => Ok(ArrayElementType::Long),
 
-            100 => Err(()),
             _ => Err(()),
         }
     }
@@ -83,197 +85,212 @@ pub enum HeapEntry {
     Array(ArrayObject),
 }
 
+type Slot = Arc<Mutex<HeapEntry>>;
+
 #[allow(dead_code)]
-#[derive(Debug)]
 pub struct Heap {
-    entries: Vec<HeapEntry>,
-    next_identity_hash: i32,
+    entries: RwLock<Vec<Slot>>,
+    next_identity_hash: AtomicI32,
 }
 
 #[allow(dead_code)]
 impl Heap {
     pub fn new() -> Self {
         Self {
-            entries: Vec::new(),
-            next_identity_hash: 1,
+            entries: RwLock::new(Vec::new()),
+            next_identity_hash: AtomicI32::new(1),
         }
     }
 
-    pub fn allocate_object(&mut self, class: ClassRef, field_slot_count: usize) -> ObjectRef {
-        let id = self.entries.len();
+    fn next_hash(&self) -> i32 {
+        self.next_identity_hash.fetch_add(1, Ordering::Relaxed)
+    }
 
-        self.entries.push(HeapEntry::Object(Object {
+    fn push_entry(&self, entry: HeapEntry) -> ObjectRef {
+        let slot = Arc::new(Mutex::new(entry));
+        let mut entries = self.entries.write().unwrap();
+        let id = entries.len();
+        entries.push(slot);
+        ObjectRef(id)
+    }
+
+    fn slot(&self, r: ObjectRef) -> Result<Slot, RuntimeError> {
+        self.entries
+            .read()
+            .unwrap()
+            .get(r.0)
+            .cloned()
+            .ok_or_else(|| {
+                RuntimeError::Internal(InternalError::InvalidHeapEntry {
+                    expected: "valid ObjectRef",
+                    found: format!("out-of-bounds {:?}", r),
+                })
+            })
+    }
+
+    pub fn allocate_object(&self, class: ClassRef, field_slot_count: usize) -> ObjectRef {
+        let hash_code = self.next_hash();
+        self.push_entry(HeapEntry::Object(Object {
             class,
             fields: vec![Value::Empty; field_slot_count],
             class_object: None,
-            hash_code: self.next_identity_hash,
-        }));
-
-        self.next_identity_hash = self.next_identity_hash.wrapping_add(1);
-
-        ObjectRef(id)
+            hash_code,
+        }))
     }
 
-    pub fn allocate_object_typed(
-        &mut self,
-        class: ClassRef,
-        field_defaults: &[Value],
-    ) -> ObjectRef {
-        let id = self.entries.len();
-
-        self.entries.push(HeapEntry::Object(Object {
+    pub fn allocate_object_typed(&self, class: ClassRef, field_defaults: &[Value]) -> ObjectRef {
+        let hash_code = self.next_hash();
+        self.push_entry(HeapEntry::Object(Object {
             class,
             fields: field_defaults.to_vec(),
             class_object: None,
-            hash_code: self.next_identity_hash,
-        }));
-
-        self.next_identity_hash = self.next_identity_hash.wrapping_add(1);
-
-        ObjectRef(id)
+            hash_code,
+        }))
     }
 
     pub fn allocate_array(
-        &mut self,
+        &self,
         class: ClassRef,
         element_type: ArrayElementType,
         length: usize,
     ) -> ObjectRef {
-        let id = self.entries.len();
         let fill = match element_type {
-            ArrayElementType::Boolean => Value::Int(0),
-            ArrayElementType::Char => Value::Int(0),
+            ArrayElementType::Boolean
+            | ArrayElementType::Char
+            | ArrayElementType::Byte
+            | ArrayElementType::Short
+            | ArrayElementType::Int => Value::Int(0),
             ArrayElementType::Float => Value::Float(0.0),
             ArrayElementType::Double => Value::Double(0.0),
-            ArrayElementType::Byte => Value::Int(0),
-            ArrayElementType::Short => Value::Int(0),
-            ArrayElementType::Int => Value::Int(0),
             ArrayElementType::Long => Value::Long(0),
             ArrayElementType::Reference(_) => Value::Reference(None),
         };
-        self.entries.push(HeapEntry::Array(ArrayObject {
+        self.push_entry(HeapEntry::Array(ArrayObject {
             element_type,
             elements: vec![fill; length],
-            class: class,
-        }));
-        ObjectRef(id)
-    }
-
-    pub fn get(&self, r: ObjectRef) -> &HeapEntry {
-        &self.entries[r.0]
-    }
-    pub fn get_mut(&mut self, r: ObjectRef) -> &mut HeapEntry {
-        &mut self.entries[r.0]
-    }
-
-    pub fn get_array(&self, r: ObjectRef) -> Result<&ArrayObject, crate::error::RuntimeError> {
-        match &self.entries[r.0] {
-            HeapEntry::Array(a) => Ok(a),
-            other => Err(RuntimeError::Internal(
-                crate::error::InternalError::InvalidHeapEntry {
-                    expected: "HeapEntry::Array",
-                    found: format!("{:?}", other),
-                },
-            )),
-        }
-    }
-
-    pub fn get_object(&self, r: ObjectRef) -> Result<&Object, crate::error::RuntimeError> {
-        match &self.entries[r.0] {
-            HeapEntry::Object(o) => Ok(o),
-            other => Err(RuntimeError::Internal(
-                crate::error::InternalError::InvalidHeapEntry {
-                    expected: "HeapEntry::Object",
-                    found: format!("{:?}", other),
-                },
-            )),
-        }
-    }
-
-    pub fn get_array_mut(
-        &mut self,
-        r: ObjectRef,
-    ) -> Result<&mut ArrayObject, crate::error::RuntimeError> {
-        match &mut self.entries[r.0] {
-            HeapEntry::Array(a) => Ok(a),
-            other => Err(RuntimeError::Internal(
-                crate::error::InternalError::InvalidHeapEntry {
-                    expected: "HeapEntry::Array",
-                    found: format!("{:?}", other),
-                },
-            )),
-        }
-    }
-
-    pub fn get_object_mut(
-        &mut self,
-        r: ObjectRef,
-    ) -> Result<&mut Object, crate::error::RuntimeError> {
-        match &mut self.entries[r.0] {
-            HeapEntry::Object(o) => Ok(o),
-            other => Err(RuntimeError::Internal(
-                crate::error::InternalError::InvalidHeapEntry {
-                    expected: "HeapEntry::Object",
-                    found: format!("{:?}", other),
-                },
-            )),
-        }
+            class,
+        }))
     }
 
     pub fn allocate_class_object(
-        &mut self,
+        &self,
         class_class: ClassRef,
         represented_class: ClassRef,
         field_slot_count: usize,
     ) -> ObjectRef {
-        let id = self.entries.len();
-
-        self.entries.push(HeapEntry::Object(Object {
+        let hash_code = self.next_hash();
+        self.push_entry(HeapEntry::Object(Object {
             class: class_class,
             fields: vec![Value::Empty; field_slot_count],
             class_object: Some(represented_class),
-            hash_code: self.next_identity_hash,
-        }));
-
-        self.next_identity_hash = self.next_identity_hash.wrapping_add(1);
-
-        ObjectRef(id)
-    }
-
-    pub fn get_class_object(&self, r: ObjectRef) -> Result<ClassRef, RuntimeError> {
-        match self.entries[r.0].clone() {
-            HeapEntry::Object(ref object) => object.class_object.ok_or_else(|| {
-                RuntimeError::Internal(crate::error::InternalError::InvalidHeapEntry {
-                    expected: "java.lang.Class object",
-                    found: format!("{:?}", object),
-                })
-            }),
-
-            other => Err(RuntimeError::Internal(
-                crate::error::InternalError::InvalidHeapEntry {
-                    expected: "java.lang.Class object",
-                    found: format!("{:?}", other),
-                },
-            )),
-        }
+            hash_code,
+        }))
     }
 
     pub fn allocate_class_object_typed(
-        &mut self,
+        &self,
         class_class: ClassRef,
         represented_class: ClassRef,
         field_defaults: &[Value],
     ) -> ObjectRef {
-        let id = self.entries.len();
-        self.entries.push(HeapEntry::Object(Object {
+        let hash_code = self.next_hash();
+        self.push_entry(HeapEntry::Object(Object {
             class: class_class,
             fields: field_defaults.to_vec(),
             class_object: Some(represented_class),
-            hash_code: self.next_identity_hash,
-        }));
+            hash_code,
+        }))
+    }
 
-        self.next_identity_hash = self.next_identity_hash.wrapping_add(1);
+    pub fn with_object<T>(
+        &self,
+        r: ObjectRef,
+        f: impl FnOnce(&Object) -> Result<T, RuntimeError>,
+    ) -> Result<T, RuntimeError> {
+        let slot = self.slot(r)?;
+        let guard = slot.lock().unwrap();
+        match &*guard {
+            HeapEntry::Object(o) => f(o),
+            other => Err(RuntimeError::Internal(InternalError::InvalidHeapEntry {
+                expected: "HeapEntry::Object",
+                found: format!("{:?}", other),
+            })),
+        }
+    }
 
-        ObjectRef(id)
+    pub fn with_object_mut<T>(
+        &self,
+        r: ObjectRef,
+        f: impl FnOnce(&mut Object) -> Result<T, RuntimeError>,
+    ) -> Result<T, RuntimeError> {
+        let slot = self.slot(r)?;
+        let mut guard = slot.lock().unwrap();
+        match &mut *guard {
+            HeapEntry::Object(o) => f(o),
+            other => Err(RuntimeError::Internal(InternalError::InvalidHeapEntry {
+                expected: "HeapEntry::Object",
+                found: format!("{:?}", other),
+            })),
+        }
+    }
+
+    pub fn with_array<T>(
+        &self,
+        r: ObjectRef,
+        f: impl FnOnce(&ArrayObject) -> Result<T, RuntimeError>,
+    ) -> Result<T, RuntimeError> {
+        let slot = self.slot(r)?;
+        let guard = slot.lock().unwrap();
+        match &*guard {
+            HeapEntry::Array(a) => f(a),
+            other => Err(RuntimeError::Internal(InternalError::InvalidHeapEntry {
+                expected: "HeapEntry::Array",
+                found: format!("{:?}", other),
+            })),
+        }
+    }
+
+    pub fn with_array_mut<T>(
+        &self,
+        r: ObjectRef,
+        f: impl FnOnce(&mut ArrayObject) -> Result<T, RuntimeError>,
+    ) -> Result<T, RuntimeError> {
+        let slot = self.slot(r)?;
+        let mut guard = slot.lock().unwrap();
+        match &mut *guard {
+            HeapEntry::Array(a) => f(a),
+            other => Err(RuntimeError::Internal(InternalError::InvalidHeapEntry {
+                expected: "HeapEntry::Array",
+                found: format!("{:?}", other),
+            })),
+        }
+    }
+
+    pub fn get_object(&self, r: ObjectRef) -> Result<Object, RuntimeError> {
+        self.with_object(r, |o| Ok(o.clone()))
+    }
+
+    pub fn get_array(&self, r: ObjectRef) -> Result<ArrayObject, RuntimeError> {
+        self.with_array(r, |a| Ok(a.clone()))
+    }
+
+    pub fn get_class_object(&self, r: ObjectRef) -> Result<ClassRef, RuntimeError> {
+        self.with_object(r, |o| {
+            o.class_object.ok_or_else(|| {
+                RuntimeError::Internal(InternalError::InvalidHeapEntry {
+                    expected: "java.lang.Class object",
+                    found: format!("{:?}", o),
+                })
+            })
+        })
+    }
+
+    pub fn class_of(&self, r: ObjectRef) -> Result<ClassRef, RuntimeError> {
+        let slot = self.slot(r)?;
+        let guard = slot.lock().unwrap();
+        Ok(match &*guard {
+            HeapEntry::Object(o) => o.class,
+            HeapEntry::Array(a) => a.class,
+        })
     }
 }

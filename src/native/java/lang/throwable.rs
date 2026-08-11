@@ -125,35 +125,46 @@ pub fn fill_in_stack_trace(
             .vm()
             .find_instance_field(stack_trace_element_class, "declaringClass")?
         {
-            ctx.vm_mut().heap_mut().get_object_mut(element_ref)?.fields[slot] =
-                Value::Reference(Some(declaring_class_ref));
+            ctx.vm_mut().heap_mut().with_object_mut(element_ref, |o| {
+                o.fields[slot] = Value::Reference(Some(declaring_class_ref));
+                Ok(())
+            })?;
         }
 
         if let Some((_, slot)) = ctx
             .vm()
             .find_instance_field(stack_trace_element_class, "methodName")?
         {
-            ctx.vm_mut().heap_mut().get_object_mut(element_ref)?.fields[slot] =
-                Value::Reference(Some(method_name_ref));
+            ctx.vm_mut().heap_mut().with_object_mut(element_ref, |o| {
+                o.fields[slot] = Value::Reference(Some(method_name_ref));
+                Ok(())
+            })?;
         }
 
         if let Some((_, slot)) = ctx
             .vm()
             .find_instance_field(stack_trace_element_class, "fileName")?
         {
-            ctx.vm_mut().heap_mut().get_object_mut(element_ref)?.fields[slot] =
-                Value::Reference(None);
+            ctx.vm_mut().heap_mut().with_object_mut(element_ref, |o| {
+                o.fields[slot] = Value::Reference(None);
+                Ok(())
+            })?;
         }
 
         if let Some((_, slot)) = ctx
             .vm()
             .find_instance_field(stack_trace_element_class, "lineNumber")?
         {
-            ctx.vm_mut().heap_mut().get_object_mut(element_ref)?.fields[slot] = Value::Int(-1);
+            ctx.vm_mut().heap_mut().with_object_mut(element_ref, |o| {
+                o.fields[slot] = Value::Int(-1);
+                Ok(())
+            })?;
         }
 
-        ctx.vm_mut().heap_mut().get_array_mut(array_ref)?.elements[index] =
-            Value::Reference(Some(element_ref));
+        ctx.vm_mut().heap_mut().with_array_mut(array_ref, |a| {
+            a.elements[index] = Value::Reference(Some(element_ref));
+            Ok(())
+        })?;
     }
 
     let (_, stack_trace_slot) = ctx
@@ -163,8 +174,10 @@ pub fn fill_in_stack_trace(
 
     ctx.vm_mut()
         .heap_mut()
-        .get_object_mut(*throwable_ref)?
-        .fields[stack_trace_slot] = Value::Reference(Some(array_ref));
+        .with_object_mut(*throwable_ref, |o| {
+            o.fields[stack_trace_slot] = Value::Reference(Some(array_ref));
+            Ok(())
+        })?;
 
     Ok(Some(Value::Reference(Some(*throwable_ref))))
 }

@@ -2,7 +2,7 @@ use crate::{
     error::{InternalError, RuntimeError},
     native::native_context::NativeContext,
     vm::{
-        heap::{ArrayElementType, HeapEntry},
+        heap::ArrayElementType,
         value::Value::{self, Reference},
     },
 };
@@ -177,13 +177,10 @@ pub fn arraycopy(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value
         );
     }
 
-    let src_pos = src_pos as usize;
-    let dest_pos = dest_pos as usize;
-    let length = length as usize;
-
-    let src_array = match ctx.vm().heap().get(src) {
-        HeapEntry::Array(array) => array,
-        HeapEntry::Object(_) => {
+    let src_array = ctx.vm().heap().with_array(src, |a| Ok(a.clone()));
+    let src_array = match src_array {
+        Ok(array) => array,
+        Err(_) => {
             return ctx.throw(
                 "java/lang/ArrayStoreException",
                 Some("source is not an array"),
@@ -191,9 +188,10 @@ pub fn arraycopy(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value
         }
     };
 
-    let dest_array = match ctx.vm().heap().get(dest) {
-        HeapEntry::Array(array) => array,
-        HeapEntry::Object(_) => {
+    let dest_array = ctx.vm().heap().with_array(dest, |a| Ok(a.clone()));
+    let dest_array = match dest_array {
+        Ok(array) => array,
+        Err(_) => {
             return ctx.throw(
                 "java/lang/ArrayStoreException",
                 Some("destination is not an array"),
@@ -202,7 +200,7 @@ pub fn arraycopy(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value
     };
 
     let src_end = match src_pos.checked_add(length) {
-        Some(v) => v,
+        Some(v) => v as usize,
         None => {
             return ctx.throw(
                 "java/lang/IndexOutOfBoundsException",
@@ -212,7 +210,7 @@ pub fn arraycopy(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value
     };
 
     let dest_end = match dest_pos.checked_add(length) {
-        Some(v) => v,
+        Some(v) => v as usize,
         None => {
             return ctx.throw(
                 "java/lang/IndexOutOfBoundsException",
@@ -262,11 +260,14 @@ pub fn arraycopy(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value
 
         let values = {
             let array = ctx.vm().heap().get_array(src)?;
-            array.elements[src_pos..src_end].to_vec()
+
+            array.elements[src_pos as usize..src_end as usize].to_vec()
         };
 
-        let destination = ctx.vm_mut().heap_mut().get_array_mut(dest)?;
-        destination.elements[dest_pos..dest_end].clone_from_slice(&values);
+        ctx.vm_mut().heap_mut().with_array_mut(dest, |a| {
+            a.elements[src_pos as usize..src_end as usize].clone_from_slice(&values);
+            Ok(())
+        })?;
 
         return Ok(None);
     }
@@ -278,7 +279,7 @@ pub fn arraycopy(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value
 
     let values = {
         let array = ctx.vm().heap().get_array(src)?;
-        array.elements[src_pos..src_end].to_vec()
+        array.elements[src_pos as usize..src_end as usize].to_vec()
     };
 
     for value in &values {
@@ -303,8 +304,10 @@ pub fn arraycopy(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value
         }
     }
 
-    let destination = ctx.vm_mut().heap_mut().get_array_mut(dest)?;
-    destination.elements[dest_pos..dest_end].clone_from_slice(&values);
+    ctx.vm_mut().heap_mut().with_array_mut(dest, |a| {
+        a.elements[src_pos as usize..src_end as usize].clone_from_slice(&values);
+        Ok(())
+    })?;
 
     Ok(None)
 }

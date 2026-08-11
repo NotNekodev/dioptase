@@ -11,7 +11,7 @@ use crate::{
     vm::{
         classpath::ClassPath,
         frame::Frame,
-        heap::{ArrayElementType, Heap, HeapEntry},
+        heap::{ArrayElementType, Heap},
         interpreter::Interpreter,
         runtime_class::{ClassRef, RuntimeClass},
         runtime_method::RuntimeMethod,
@@ -118,11 +118,16 @@ impl VM {
 
         if let Some((_, slot)) = self.find_instance_field(group_class, "name")? {
             let name_ref = self.allocate_string("main")?;
-            self.heap_mut().get_object_mut(obj_ref)?.fields[slot] =
-                Value::Reference(Some(name_ref));
+            self.heap_mut().with_object_mut(obj_ref, |o| {
+                o.fields[slot] = Value::Reference(Some(name_ref));
+                Ok(())
+            })?;
         }
         if let Some((_, slot)) = self.find_instance_field(group_class, "maxPriority")? {
-            self.heap_mut().get_object_mut(obj_ref)?.fields[slot] = Value::Int(10);
+            self.heap_mut().with_object_mut(obj_ref, |o| {
+                o.fields[slot] = Value::Int(10);
+                Ok(())
+            })?;
         }
 
         self.main_thread_group = Some(obj_ref);
@@ -145,19 +150,26 @@ impl VM {
         if let Some((_, slot)) = self.find_instance_field(thread_class, "name")? {
             let name = self.get_thread(thread_ref)?.name().clone();
             let name_ref = self.allocate_string(name.as_str())?;
-            self.heap_mut().get_object_mut(obj_ref)?.fields[slot] =
-                Value::Reference(Some(name_ref));
+            self.heap_mut().with_object_mut(obj_ref, |o| {
+                o.fields[slot] = Value::Reference(Some(name_ref));
+                Ok(())
+            })?;
         }
 
         if let Some((_, slot)) = self.find_instance_field(thread_class, "priority")? {
             let priority = self.get_thread(thread_ref)?.priority();
-            self.heap_mut().get_object_mut(obj_ref)?.fields[slot] = Value::Int(priority as i32);
+            self.heap_mut().with_object_mut(obj_ref, |o| {
+                o.fields[slot] = Value::Int(priority as i32);
+                Ok(())
+            })?;
         }
 
         let group_ref = self.main_thread_group()?;
         if let Some((_, slot)) = self.find_instance_field(thread_class, "group")? {
-            self.heap_mut().get_object_mut(obj_ref)?.fields[slot] =
-                Value::Reference(Some(group_ref));
+            self.heap_mut().with_object_mut(obj_ref, |o| {
+                o.fields[slot] = Value::Reference(Some(group_ref));
+                Ok(())
+            })?;
         }
 
         self.thread_objects.insert(thread_ref, obj_ref);
@@ -187,10 +199,9 @@ impl VM {
         }
 
         let name = if let Some((_, slot)) = self.find_instance_field(class_ref, "name")? {
-            let value = {
-                let obj = self.heap().get_object(object_ref)?;
-                obj.fields.get(slot).cloned()
-            };
+            let value = self
+                .heap()
+                .with_object(object_ref, |o| Ok(o.fields.get(slot).cloned()))?;
 
             match value {
                 Some(Value::Reference(Some(name_ref))) => self.java_string_to_rust(name_ref)?,
@@ -217,12 +228,13 @@ impl VM {
         let array_ref =
             self.heap_mut()
                 .allocate_array(string_class, ArrayElementType::Char, units.len());
-        {
-            let array = self.heap_mut().get_array_mut(array_ref)?;
+
+        self.heap_mut().with_array_mut(array_ref, |array| {
             for (slot, unit) in array.elements.iter_mut().zip(units.iter()) {
                 *slot = Value::Int(*unit as i32);
             }
-        }
+            Ok(())
+        })?;
 
         let defaults = self.default_field_values(string_class)?;
         let obj_ref = self
@@ -230,8 +242,10 @@ impl VM {
             .allocate_object_typed(string_class, &defaults);
 
         if let Some((_, slot)) = self.find_instance_field(string_class, "value")? {
-            self.heap_mut().get_object_mut(obj_ref)?.fields[slot] =
-                Value::Reference(Some(array_ref));
+            self.heap_mut().with_object_mut(obj_ref, |o| {
+                o.fields[slot] = Value::Reference(Some(array_ref));
+                Ok(())
+            })?;
         }
 
         Ok(obj_ref)
@@ -247,7 +261,6 @@ impl VM {
     }
 
     pub fn java_string_to_rust(&self, r: ObjectRef) -> Result<String, RuntimeError> {
-        let obj = self.heap().get_object(r)?;
         let string_class = self
             .classes_by_name
             .get("java/lang/String")
@@ -258,11 +271,12 @@ impl VM {
                 })
             })?;
 
-        if !self.is_assignable(obj.class, string_class)? {
+        let obj_class = self.heap().class_of(r)?;
+        if !self.is_assignable(obj_class, string_class)? {
             return Err(RuntimeError::Internal(InternalError::InvalidHeapEntry {
                 expected: "java.lang.String",
                 found: self
-                    .get_class(obj.class)
+                    .get_class(obj_class)
                     .map(|c| c.name.clone())
                     .unwrap_or_default(),
             }));
@@ -272,10 +286,12 @@ impl VM {
             .find_instance_field(string_class, "value")?
             .ok_or(InternalError::InvalidSlot)?;
 
-        let array_ref = match obj.fields[slot] {
+        let value = self.heap().with_object(r, |o| Ok(o.fields[slot].clone()))?;
+
+        let array_ref = match value {
             Value::Reference(Some(r)) => r,
             Value::Reference(None) => return Ok(String::new()),
-            ref other => {
+            other => {
                 return Err(RuntimeError::Internal(InternalError::InvalidHeapEntry {
                     expected: "char[]",
                     found: format!("{:?}", other),
@@ -283,15 +299,16 @@ impl VM {
             }
         };
 
-        let array = self.heap().get_array(array_ref)?;
-        let units: Vec<u16> = array
-            .elements
-            .iter()
-            .map(|v| match v {
-                Value::Int(i) => *i as u16,
-                _ => 0,
-            })
-            .collect();
+        let units: Vec<u16> = self.heap().with_array(array_ref, |array| {
+            Ok(array
+                .elements
+                .iter()
+                .map(|v| match v {
+                    Value::Int(i) => *i as u16,
+                    _ => 0,
+                })
+                .collect())
+        })?;
 
         Ok(String::from_utf16_lossy(&units))
     }
@@ -711,19 +728,27 @@ impl VM {
                     .map(|c| c.name.clone())
                     .unwrap_or_default();
 
-                if let Ok(obj) = self.heap_mut().get_object_mut(obj_ref) {
-                    let field_count = obj.fields.len();
+                let field_count = self
+                    .heap()
+                    .with_object(obj_ref, |o| Ok(o.fields.len()))
+                    .unwrap_or(0);
 
-                    match obj.fields.get_mut(slot) {
-                        Some(field) => *field = Value::Reference(Some(str_ref)),
-                        None => {
-                            println!(
-                                "warning: detailMessage slot {} out of bounds for {} (has {} fields) — \
-                                 likely duplicate/stale ClassRef for this class name",
-                                slot, class_name, field_count,
-                            );
-                        }
-                    }
+                let set =
+                    self.heap_mut()
+                        .with_object_mut(obj_ref, |o| match o.fields.get_mut(slot) {
+                            Some(field) => {
+                                *field = Value::Reference(Some(str_ref));
+                                Ok(true)
+                            }
+                            None => Ok(false),
+                        });
+
+                if matches!(set, Ok(false)) {
+                    println!(
+                        "warning: detailMessage slot {} out of bounds for {} (has {} fields) — \
+                         likely duplicate/stale ClassRef for this class name",
+                        slot, class_name, field_count,
+                    );
                 }
             }
         }
@@ -840,10 +865,7 @@ impl VM {
     }
 
     pub fn runtime_class_of(&mut self, obj_ref: ObjectRef) -> Result<ClassRef, RuntimeError> {
-        match self.heap().get(obj_ref) {
-            HeapEntry::Object(o) => Ok(o.class),
-            HeapEntry::Array(o) => Ok(o.class),
-        }
+        self.heap().class_of(obj_ref)
     }
 
     pub fn invoke_virtual_to_completion(

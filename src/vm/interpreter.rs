@@ -1090,7 +1090,10 @@ impl Interpreter {
                             .map(|(_, slot)| slot)
                             .ok_or(InternalError::InvalidSlot)?;
 
-                        vm.heap_mut().get_object_mut(objectref)?.fields[slot] = value;
+                        vm.heap_mut().with_object_mut(objectref, |o| {
+                            o.fields[slot] = value;
+                            Ok(())
+                        })?;
                     }
 
                     Opcode::InvokeSpecial => {
@@ -2053,11 +2056,7 @@ impl Interpreter {
                         };
 
                         {
-                            let len = {
-                                let array = vm.heap_mut().get_array_mut(reference)?;
-                                array.elements.len()
-                            };
-
+                            let len = vm.heap().with_array(reference, |a| Ok(a.elements.len()))?;
                             if index >= len {
                                 return Err(vm.throw(
                                     "java/lang/ArrayIndexOutOfBoundsException",
@@ -2069,8 +2068,10 @@ impl Interpreter {
                             }
                         }
 
-                        let array = vm.heap_mut().get_array_mut(reference)?;
-                        array.elements[index] = Value::Int(value);
+                        vm.heap_mut().with_array_mut(reference, |a| {
+                            a.elements[index] = Value::Int(value);
+                            Ok(())
+                        })?;
                     }
 
                     Opcode::IAStore => {
@@ -2109,11 +2110,7 @@ impl Interpreter {
                         };
 
                         {
-                            let len = {
-                                let array = vm.heap_mut().get_array_mut(reference)?;
-                                array.elements.len()
-                            };
-
+                            let len = vm.heap().with_array(reference, |a| Ok(a.elements.len()))?;
                             if index >= len {
                                 return Err(vm.throw(
                                     "java/lang/ArrayIndexOutOfBoundsException",
@@ -2124,9 +2121,10 @@ impl Interpreter {
                                 ));
                             }
                         }
-
-                        let array = vm.heap_mut().get_array_mut(reference)?;
-                        array.elements[index] = Value::Int(value);
+                        vm.heap_mut().with_array_mut(reference, |a| {
+                            a.elements[index] = Value::Int(value);
+                            Ok(())
+                        })?;
                     }
 
                     Opcode::LAStore => {
@@ -2165,11 +2163,7 @@ impl Interpreter {
                         };
 
                         {
-                            let len = {
-                                let array = vm.heap_mut().get_array_mut(reference)?;
-                                array.elements.len()
-                            };
-
+                            let len = vm.heap().with_array(reference, |a| Ok(a.elements.len()))?;
                             if index >= len {
                                 return Err(vm.throw(
                                     "java/lang/ArrayIndexOutOfBoundsException",
@@ -2180,9 +2174,10 @@ impl Interpreter {
                                 ));
                             }
                         }
-
-                        let array = vm.heap_mut().get_array_mut(reference)?;
-                        array.elements[index] = Value::Long(value);
+                        vm.heap_mut().with_array_mut(reference, |a| {
+                            a.elements[index] = Value::Long(value);
+                            Ok(())
+                        })?;
                     }
 
                     Opcode::FAStore => {
@@ -2221,11 +2216,7 @@ impl Interpreter {
                         };
 
                         {
-                            let len = {
-                                let array = vm.heap_mut().get_array_mut(reference)?;
-                                array.elements.len()
-                            };
-
+                            let len = vm.heap().with_array(reference, |a| Ok(a.elements.len()))?;
                             if index >= len {
                                 return Err(vm.throw(
                                     "java/lang/ArrayIndexOutOfBoundsException",
@@ -2236,9 +2227,10 @@ impl Interpreter {
                                 ));
                             }
                         }
-
-                        let array = vm.heap_mut().get_array_mut(reference)?;
-                        array.elements[index] = Value::Float(value);
+                        vm.heap_mut().with_array_mut(reference, |a| {
+                            a.elements[index] = Value::Float(value);
+                            Ok(())
+                        })?;
                     }
 
                     Opcode::DAStore => {
@@ -2277,11 +2269,7 @@ impl Interpreter {
                         };
 
                         {
-                            let len = {
-                                let array = vm.heap_mut().get_array_mut(reference)?;
-                                array.elements.len()
-                            };
-
+                            let len = vm.heap().with_array(reference, |a| Ok(a.elements.len()))?;
                             if index >= len {
                                 return Err(vm.throw(
                                     "java/lang/ArrayIndexOutOfBoundsException",
@@ -2292,9 +2280,10 @@ impl Interpreter {
                                 ));
                             }
                         }
-
-                        let array = vm.heap_mut().get_array_mut(reference)?;
-                        array.elements[index] = Value::Double(value);
+                        vm.heap_mut().with_array_mut(reference, |a| {
+                            a.elements[index] = Value::Double(value);
+                            Ok(())
+                        })?;
                     }
 
                     Opcode::BAStore => {
@@ -2333,11 +2322,7 @@ impl Interpreter {
                         };
 
                         {
-                            let len = {
-                                let array = vm.heap_mut().get_array_mut(reference)?;
-                                array.elements.len()
-                            };
-
+                            let len = vm.heap().with_array(reference, |a| Ok(a.elements.len()))?;
                             if index >= len {
                                 return Err(vm.throw(
                                     "java/lang/ArrayIndexOutOfBoundsException",
@@ -2348,9 +2333,10 @@ impl Interpreter {
                                 ));
                             }
                         }
-
-                        let array = vm.heap_mut().get_array_mut(reference)?;
-                        array.elements[index] = Value::Int(value); // both booleans and bytes are represented by integers
+                        vm.heap_mut().with_array_mut(reference, |a| {
+                            a.elements[index] = Value::Int(value); // both boolean and its are represented as integers
+                            Ok(())
+                        })?;
                     }
 
                     Opcode::SAStore => {
@@ -2389,11 +2375,7 @@ impl Interpreter {
                         };
 
                         {
-                            let len = {
-                                let array = vm.heap_mut().get_array_mut(reference)?;
-                                array.elements.len()
-                            };
-
+                            let len = vm.heap().with_array(reference, |a| Ok(a.elements.len()))?;
                             if index >= len {
                                 return Err(vm.throw(
                                     "java/lang/ArrayIndexOutOfBoundsException",
@@ -2404,9 +2386,10 @@ impl Interpreter {
                                 ));
                             }
                         }
-
-                        let array = vm.heap_mut().get_array_mut(reference)?;
-                        array.elements[index] = Value::Int(value); // shorts are represented using integers
+                        vm.heap_mut().with_array_mut(reference, |a| {
+                            a.elements[index] = Value::Int(value); // shorts are represented using integers
+                            Ok(())
+                        })?;
                     }
 
                     Opcode::IALoad => {
@@ -2439,7 +2422,7 @@ impl Interpreter {
 
                         let value = {
                             let result = {
-                                let array = vm.heap_mut().get_array_mut(reference)?;
+                                let array = vm.heap_mut().get_array(reference)?;
 
                                 if let Some(v) = array.elements.get(index) {
                                     Ok(v.clone())
@@ -2496,7 +2479,7 @@ impl Interpreter {
 
                         let value = {
                             let result = {
-                                let array = vm.heap_mut().get_array_mut(reference)?;
+                                let array = vm.heap_mut().get_array(reference)?;
 
                                 if let Some(v) = array.elements.get(index) {
                                     Ok(v.clone())
@@ -2541,7 +2524,7 @@ impl Interpreter {
                             }
                         };
 
-                        let array = vm.heap_mut().get_array_mut(reference)?;
+                        let array = vm.heap_mut().get_array(reference)?;
                         let length = array.elements.len();
 
                         let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
@@ -2622,7 +2605,7 @@ impl Interpreter {
 
                         {
                             let len = {
-                                let array = vm.heap_mut().get_array_mut(reference)?;
+                                let array = vm.heap_mut().get_array(reference)?;
                                 array.elements.len()
                             };
 
@@ -2637,7 +2620,10 @@ impl Interpreter {
                             }
                         }
 
-                        vm.heap_mut().get_array_mut(reference)?.elements[index as usize] = value;
+                        vm.heap_mut().with_array_mut(reference, |a| {
+                            a.elements[index as usize] = value;
+                            Ok(())
+                        })?;
                     }
 
                     Opcode::AALoad => {
@@ -2988,7 +2974,10 @@ impl Interpreter {
                             .ok_or(InternalError::InvalidSlot)?
                             .slot;
                         let storage_ref = vm.static_storage_ref(owner_ref)?;
-                        vm.heap_mut().get_object_mut(storage_ref)?.fields[slot] = value;
+                        vm.heap_mut().with_object_mut(storage_ref, |o| {
+                            o.fields[slot] = value;
+                            Ok(())
+                        })?;
                     }
 
                     Opcode::InvokeVirtual => {
