@@ -42,8 +42,8 @@ pub fn fill_in_stack_trace(
         }
     };
 
-    let throwable_class = ctx.vm_mut().resolve_class("java/lang/Throwable")?;
-    let actual_class = ctx.vm_mut().runtime_class_of(*throwable_ref)?;
+    let throwable_class = ctx.vm().resolve_class("java/lang/Throwable")?;
+    let actual_class = ctx.vm().runtime_class_of(*throwable_ref)?;
 
     if !ctx.vm().is_assignable(actual_class, throwable_class)? {
         return Err(RuntimeError::Internal(InternalError::InvalidType {
@@ -62,18 +62,11 @@ pub fn fill_in_stack_trace(
     let thread_ref = ctx.thread();
 
     let frame_info = {
-        let thread = ctx.vm_mut().get_thread(thread_ref)?;
-
+        let thread = ctx.vm().get_thread(thread_ref)?;
         thread
-            .frames()
-            .iter()
+            .frame_snapshot()
+            .into_iter()
             .rev()
-            .map(|frame| {
-                let class_ref = frame.class;
-                let method_index = frame.method_index;
-
-                (class_ref, method_index)
-            })
             .collect::<Vec<_>>()
     };
 
@@ -89,13 +82,11 @@ pub fn fill_in_stack_trace(
         stack_frames.push((class_ref, method_index));
     }
 
-    let stack_trace_element_class = ctx.vm_mut().resolve_class("java/lang/StackTraceElement")?;
+    let stack_trace_element_class = ctx.vm().resolve_class("java/lang/StackTraceElement")?;
 
-    let stack_trace_array_class = ctx
-        .vm_mut()
-        .resolve_class("[Ljava/lang/StackTraceElement;")?;
+    let stack_trace_array_class = ctx.vm().resolve_class("[Ljava/lang/StackTraceElement;")?;
 
-    let array_ref = ctx.vm_mut().heap_mut().allocate_array(
+    let array_ref = ctx.vm().heap().allocate_array(
         stack_trace_array_class,
         ArrayElementType::Reference(stack_trace_element_class),
         stack_frames.len(),
@@ -113,19 +104,19 @@ pub fn fill_in_stack_trace(
         let defaults = ctx.vm().default_field_values(stack_trace_element_class)?;
 
         let element_ref = ctx
-            .vm_mut()
-            .heap_mut()
+            .vm()
+            .heap()
             .allocate_object_typed(stack_trace_element_class, &defaults);
 
-        let declaring_class_ref = ctx.vm_mut().allocate_string(&declaring_class)?;
+        let declaring_class_ref = ctx.vm().allocate_string(&declaring_class)?;
 
-        let method_name_ref = ctx.vm_mut().allocate_string(&method_name)?;
+        let method_name_ref = ctx.vm().allocate_string(&method_name)?;
 
         if let Some((_, slot)) = ctx
             .vm()
             .find_instance_field(stack_trace_element_class, "declaringClass")?
         {
-            ctx.vm_mut().heap_mut().with_object_mut(element_ref, |o| {
+            ctx.vm().heap().with_object_mut(element_ref, |o| {
                 o.fields[slot] = Value::Reference(Some(declaring_class_ref));
                 Ok(())
             })?;
@@ -135,7 +126,7 @@ pub fn fill_in_stack_trace(
             .vm()
             .find_instance_field(stack_trace_element_class, "methodName")?
         {
-            ctx.vm_mut().heap_mut().with_object_mut(element_ref, |o| {
+            ctx.vm().heap().with_object_mut(element_ref, |o| {
                 o.fields[slot] = Value::Reference(Some(method_name_ref));
                 Ok(())
             })?;
@@ -145,7 +136,7 @@ pub fn fill_in_stack_trace(
             .vm()
             .find_instance_field(stack_trace_element_class, "fileName")?
         {
-            ctx.vm_mut().heap_mut().with_object_mut(element_ref, |o| {
+            ctx.vm().heap().with_object_mut(element_ref, |o| {
                 o.fields[slot] = Value::Reference(None);
                 Ok(())
             })?;
@@ -155,13 +146,13 @@ pub fn fill_in_stack_trace(
             .vm()
             .find_instance_field(stack_trace_element_class, "lineNumber")?
         {
-            ctx.vm_mut().heap_mut().with_object_mut(element_ref, |o| {
+            ctx.vm().heap().with_object_mut(element_ref, |o| {
                 o.fields[slot] = Value::Int(-1);
                 Ok(())
             })?;
         }
 
-        ctx.vm_mut().heap_mut().with_array_mut(array_ref, |a| {
+        ctx.vm().heap().with_array_mut(array_ref, |a| {
             a.elements[index] = Value::Reference(Some(element_ref));
             Ok(())
         })?;
@@ -172,12 +163,10 @@ pub fn fill_in_stack_trace(
         .find_instance_field(throwable_class, "stackTrace")?
         .ok_or_else(|| RuntimeError::Internal(InternalError::InvalidSlot))?;
 
-    ctx.vm_mut()
-        .heap_mut()
-        .with_object_mut(*throwable_ref, |o| {
-            o.fields[stack_trace_slot] = Value::Reference(Some(array_ref));
-            Ok(())
-        })?;
+    ctx.vm().heap().with_object_mut(*throwable_ref, |o| {
+        o.fields[stack_trace_slot] = Value::Reference(Some(array_ref));
+        Ok(())
+    })?;
 
     Ok(Some(Value::Reference(Some(*throwable_ref))))
 }

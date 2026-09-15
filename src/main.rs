@@ -64,7 +64,7 @@ fn real_main() -> Result<i32, Box<dyn Error + Send + Sync + 'static>> {
         }
     };
 
-    let mut vm: VM = VM::new();
+    let vm: VM = VM::new();
     vm.set_classpath(classpath);
 
     match vm.run_main(main_class) {
@@ -77,7 +77,7 @@ fn real_main() -> Result<i32, Box<dyn Error + Send + Sync + 'static>> {
             found: format!("{:?}", other),
         }))),
         Err(RuntimeError::Thrown(obj_ref)) => {
-            let thread_name = vm.get_thread(*vm.main_thread())?.name().clone();
+            let thread_name = vm.get_thread(vm.main_thread())?.name().to_string();
 
             eprintln!(
                 "\x1b[1;31merror:\x1b[0m Exception in thread \"{}\" {}",

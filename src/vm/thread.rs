@@ -1,4 +1,7 @@
-use crate::vm::frame::Frame;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Mutex, MutexGuard, RwLock};
+
+use crate::vm::{frame::Frame, runtime_class::ClassRef};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ThreadRef(pub usize);
@@ -15,75 +18,92 @@ pub enum ThreadState {
 
 #[allow(dead_code)]
 pub struct Thread {
-    frames: Vec<Frame>,
+    frames: Mutex<Vec<Frame>>,
     id: ThreadRef,
     name: String,
-    state: ThreadState,
-    priority: usize,
+    state: RwLock<ThreadState>,
+    priority: AtomicUsize,
 }
 
 #[allow(dead_code)]
 impl Thread {
     pub fn new(id: ThreadRef, name: impl Into<String>) -> Self {
         Self {
-            frames: Vec::new(),
-            id: id,
+            frames: Mutex::new(Vec::new()),
+            id,
             name: name.into(),
-            state: ThreadState::New,
-            priority: 5,
+            state: RwLock::new(ThreadState::New),
+            priority: AtomicUsize::new(5),
         }
     }
 
-    pub fn start(&mut self) {
-        debug_assert_eq!(self.state, ThreadState::New);
-        self.state = ThreadState::Runnable;
+    pub fn id(&self) -> ThreadRef {
+        self.id
     }
 
-    pub fn terminate(&mut self) {
-        self.state = ThreadState::Terminated;
+    pub fn start(&self) {
+        debug_assert_eq!(*self.state.read().unwrap(), ThreadState::New);
+        *self.state.write().unwrap() = ThreadState::Runnable;
     }
 
-    pub fn block(&mut self) {
-        self.state = ThreadState::Blocked;
+    pub fn terminate(&self) {
+        *self.state.write().unwrap() = ThreadState::Terminated;
     }
 
-    pub fn wait(&mut self) {
-        self.state = ThreadState::Waiting
+    pub fn block(&self) {
+        *self.state.write().unwrap() = ThreadState::Blocked;
     }
 
-    pub fn timed_wait(&mut self) {
-        self.state = ThreadState::TimedWaiting;
+    pub fn wait(&self) {
+        *self.state.write().unwrap() = ThreadState::Waiting;
     }
 
-    pub fn name(&self) -> &String {
+    pub fn timed_wait(&self) {
+        *self.state.write().unwrap() = ThreadState::TimedWaiting;
+    }
+
+    pub fn resume_running(&self) {
+        *self.state.write().unwrap() = ThreadState::Runnable;
+    }
+
+    pub fn name(&self) -> &str {
         &self.name
     }
 
-    pub fn frames(&self) -> &Vec<Frame> {
-        &self.frames
-    }
-
-    pub fn state(&self) -> &ThreadState {
-        &self.state
+    pub fn state(&self) -> ThreadState {
+        *self.state.read().unwrap()
     }
 
     pub fn priority(&self) -> usize {
-        self.priority
+        self.priority.load(Ordering::Relaxed)
     }
 
-    pub fn set_priority(&mut self, prio: usize) {
-        self.priority = prio;
+    pub fn set_priority(&self, prio: usize) {
+        self.priority.store(prio, Ordering::Relaxed);
     }
 
-    pub fn push_frame(&mut self, frame: Frame) {
-        self.frames.push(frame);
+    pub fn push_frame(&self, frame: Frame) {
+        self.frames.lock().unwrap().push(frame);
     }
 
-    pub fn pop_frame(&mut self) -> Option<Frame> {
-        self.frames.pop()
+    pub fn pop_frame(&self) -> Option<Frame> {
+        self.frames.lock().unwrap().pop()
     }
 
-    pub fn current_frame(&mut self) -> Option<&mut Frame> {
-        self.frames.last_mut()
+    pub fn frame_depth(&self) -> usize {
+        self.frames.lock().unwrap().len()
+    }
+
+    pub fn lock_frames(&self) -> MutexGuard<'_, Vec<Frame>> {
+        self.frames.lock().unwrap()
+    }
+
+    pub fn frame_snapshot(&self) -> Vec<(ClassRef, usize)> {
+        self.frames
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|f| (f.class, f.method_index))
+            .collect()
     }
 }

@@ -1,4 +1,11 @@
-use std::{collections::HashMap, str::FromStr};
+use std::{
+    collections::HashMap,
+    str::FromStr,
+    sync::{
+        Arc, Mutex, RwLock,
+        atomic::{AtomicUsize, Ordering},
+    },
+};
 
 use jdescriptor::TypeDescriptor;
 
@@ -42,69 +49,89 @@ pub struct ResolvedMethod {
 
 #[allow(dead_code)]
 pub struct VM {
-    classes: Vec<RuntimeClass>,
-    classes_by_name: HashMap<String, ClassRef>,
-    threads: Vec<Thread>,
-    main_thread: ThreadRef,
-    classpath: ClassPath,
+    classes: RwLock<Vec<Arc<RuntimeClass>>>,
+    classes_by_name: RwLock<HashMap<String, ClassRef>>,
+
+    threads: RwLock<HashMap<ThreadRef, Arc<Thread>>>,
+    next_thread_id: AtomicUsize,
+    main_thread: RwLock<ThreadRef>,
+
+    classpath: Mutex<ClassPath>,
     heap: Heap,
-    static_storage: HashMap<ClassRef, ObjectRef>,
-    exceptions_registered: bool,
-    class_objects: HashMap<ClassRef, ObjectRef>,
+
+    static_storage: RwLock<HashMap<ClassRef, ObjectRef>>,
+    class_objects: RwLock<HashMap<ClassRef, ObjectRef>>,
     primitive_classes: PrimitiveClasses,
-    string_pool: HashMap<String, ObjectRef>,
-    virtual_method_cache: HashMap<(ClassRef, String, String), ResolvedMethod>,
+    string_pool: RwLock<HashMap<String, ObjectRef>>,
+    virtual_method_cache: RwLock<HashMap<(ClassRef, String, String), ResolvedMethod>>,
 
-    thread_objects: HashMap<ThreadRef, ObjectRef>,
-    thread_by_object: HashMap<ObjectRef, ThreadRef>,
+    thread_objects: RwLock<HashMap<ThreadRef, ObjectRef>>,
+    thread_by_object: RwLock<HashMap<ObjectRef, ThreadRef>>,
 
-    main_thread_group: Option<ObjectRef>,
+    main_thread_group: RwLock<Option<ObjectRef>>,
 }
 
 #[allow(dead_code)]
 impl VM {
     pub fn new() -> Self {
-        let mut vm = Self {
-            classes: Vec::new(),
-            threads: Vec::new(),
-            main_thread: ThreadRef(0),
-            classes_by_name: HashMap::new(),
-            classpath: ClassPath::empty(),
-            heap: Heap::new(),
-            static_storage: HashMap::new(),
-            exceptions_registered: false,
-            class_objects: HashMap::new(),
+        let mut classes: Vec<Arc<RuntimeClass>> = Vec::new();
+        let mut classes_by_name: HashMap<String, ClassRef> = HashMap::new();
 
-            primitive_classes: PrimitiveClasses {
-                boolean: ClassRef(usize::MAX),
-                byte: ClassRef(usize::MAX),
-                char: ClassRef(usize::MAX),
-                short: ClassRef(usize::MAX),
-                int: ClassRef(usize::MAX),
-                long: ClassRef(usize::MAX),
-                float: ClassRef(usize::MAX),
-                double: ClassRef(usize::MAX),
-                void: ClassRef(usize::MAX),
-            },
-
-            string_pool: HashMap::new(),
-            virtual_method_cache: HashMap::new(),
-            thread_objects: HashMap::new(),
-            thread_by_object: HashMap::new(),
-            main_thread_group: None,
+        let register = |classes: &mut Vec<Arc<RuntimeClass>>,
+                        classes_by_name: &mut HashMap<String, ClassRef>,
+                        name: &str|
+         -> ClassRef {
+            let class_ref = ClassRef(classes.len());
+            classes.push(Arc::new(RuntimeClass::primitive(name)));
+            classes_by_name.insert(name.to_string(), class_ref);
+            class_ref
         };
 
-        vm.bootstrap_primitives();
+        let boolean = register(&mut classes, &mut classes_by_name, "boolean");
+        let byte = register(&mut classes, &mut classes_by_name, "byte");
+        let char = register(&mut classes, &mut classes_by_name, "char");
+        let short = register(&mut classes, &mut classes_by_name, "short");
+        let int = register(&mut classes, &mut classes_by_name, "int");
+        let long = register(&mut classes, &mut classes_by_name, "long");
+        let float = register(&mut classes, &mut classes_by_name, "float");
+        let double = register(&mut classes, &mut classes_by_name, "double");
+        let void = register(&mut classes, &mut classes_by_name, "void");
 
-        vm
+        Self {
+            classes: RwLock::new(classes),
+            classes_by_name: RwLock::new(classes_by_name),
+            threads: RwLock::new(HashMap::new()),
+            next_thread_id: AtomicUsize::new(0),
+            main_thread: RwLock::new(ThreadRef(0)),
+            classpath: Mutex::new(ClassPath::empty()),
+            heap: Heap::new(),
+            static_storage: RwLock::new(HashMap::new()),
+            class_objects: RwLock::new(HashMap::new()),
+            primitive_classes: PrimitiveClasses {
+                boolean,
+                byte,
+                char,
+                short,
+                int,
+                long,
+                float,
+                double,
+                void,
+            },
+            string_pool: RwLock::new(HashMap::new()),
+            virtual_method_cache: RwLock::new(HashMap::new()),
+            thread_objects: RwLock::new(HashMap::new()),
+            thread_by_object: RwLock::new(HashMap::new()),
+            main_thread_group: RwLock::new(None),
+        }
     }
 
-    pub fn main_thread(&self) -> &ThreadRef {
-        &self.main_thread
+    pub fn main_thread(&self) -> ThreadRef {
+        *self.main_thread.read().unwrap()
     }
 
-    pub fn main_thread_group(&mut self) -> Result<ObjectRef, RuntimeError> {
-        if let Some(existing) = self.main_thread_group {
+    pub fn main_thread_group(&self) -> Result<ObjectRef, RuntimeError> {
+        if let Some(existing) = *self.main_thread_group.read().unwrap() {
             return Ok(existing);
         }
 
@@ -112,30 +139,32 @@ impl VM {
         self.ensure_class_initialized(group_class)?;
 
         let defaults = self.default_field_values(group_class)?;
-        let obj_ref = self
-            .heap_mut()
-            .allocate_object_typed(group_class, &defaults);
+        let obj_ref = self.heap().allocate_object_typed(group_class, &defaults);
 
         if let Some((_, slot)) = self.find_instance_field(group_class, "name")? {
             let name_ref = self.allocate_string("main")?;
-            self.heap_mut().with_object_mut(obj_ref, |o| {
+            self.heap().with_object_mut(obj_ref, |o| {
                 o.fields[slot] = Value::Reference(Some(name_ref));
                 Ok(())
             })?;
         }
         if let Some((_, slot)) = self.find_instance_field(group_class, "maxPriority")? {
-            self.heap_mut().with_object_mut(obj_ref, |o| {
+            self.heap().with_object_mut(obj_ref, |o| {
                 o.fields[slot] = Value::Int(10);
                 Ok(())
             })?;
         }
 
-        self.main_thread_group = Some(obj_ref);
+        let mut guard = self.main_thread_group.write().unwrap();
+        if let Some(existing) = *guard {
+            return Ok(existing);
+        }
+        *guard = Some(obj_ref);
         Ok(obj_ref)
     }
 
-    pub fn thread_object_for(&mut self, thread_ref: ThreadRef) -> Result<ObjectRef, RuntimeError> {
-        if let Some(existing) = self.thread_objects.get(&thread_ref) {
+    pub fn thread_object_for(&self, thread_ref: ThreadRef) -> Result<ObjectRef, RuntimeError> {
+        if let Some(existing) = self.thread_objects.read().unwrap().get(&thread_ref) {
             return Ok(*existing);
         }
 
@@ -143,22 +172,21 @@ impl VM {
         self.ensure_class_initialized(thread_class)?;
 
         let defaults = self.default_field_values(thread_class)?;
-        let obj_ref = self
-            .heap_mut()
-            .allocate_object_typed(thread_class, &defaults);
+        let obj_ref = self.heap().allocate_object_typed(thread_class, &defaults);
+
+        let thread_handle = self.get_thread(thread_ref)?;
 
         if let Some((_, slot)) = self.find_instance_field(thread_class, "name")? {
-            let name = self.get_thread(thread_ref)?.name().clone();
-            let name_ref = self.allocate_string(name.as_str())?;
-            self.heap_mut().with_object_mut(obj_ref, |o| {
+            let name_ref = self.allocate_string(thread_handle.name())?;
+            self.heap().with_object_mut(obj_ref, |o| {
                 o.fields[slot] = Value::Reference(Some(name_ref));
                 Ok(())
             })?;
         }
 
         if let Some((_, slot)) = self.find_instance_field(thread_class, "priority")? {
-            let priority = self.get_thread(thread_ref)?.priority();
-            self.heap_mut().with_object_mut(obj_ref, |o| {
+            let priority = thread_handle.priority();
+            self.heap().with_object_mut(obj_ref, |o| {
                 o.fields[slot] = Value::Int(priority as i32);
                 Ok(())
             })?;
@@ -166,23 +194,25 @@ impl VM {
 
         let group_ref = self.main_thread_group()?;
         if let Some((_, slot)) = self.find_instance_field(thread_class, "group")? {
-            self.heap_mut().with_object_mut(obj_ref, |o| {
+            self.heap().with_object_mut(obj_ref, |o| {
                 o.fields[slot] = Value::Reference(Some(group_ref));
                 Ok(())
             })?;
         }
 
-        self.thread_objects.insert(thread_ref, obj_ref);
-        self.thread_by_object.insert(obj_ref, thread_ref);
+        let mut objects = self.thread_objects.write().unwrap();
+        let mut by_object = self.thread_by_object.write().unwrap();
+        if let Some(existing) = objects.get(&thread_ref) {
+            return Ok(*existing); // lost the race
+        }
+        objects.insert(thread_ref, obj_ref);
+        by_object.insert(obj_ref, thread_ref);
 
         Ok(obj_ref)
     }
 
-    pub fn thread_ref_from_object(
-        &mut self,
-        object_ref: ObjectRef,
-    ) -> Result<ThreadRef, RuntimeError> {
-        if let Some(thread_ref) = self.thread_by_object.get(&object_ref) {
+    pub fn thread_ref_from_object(&self, object_ref: ObjectRef) -> Result<ThreadRef, RuntimeError> {
+        if let Some(thread_ref) = self.thread_by_object.read().unwrap().get(&object_ref) {
             return Ok(*thread_ref);
         }
 
@@ -198,6 +228,7 @@ impl VM {
             }));
         }
 
+        let fallback_name = format!("Thread-{}", self.threads.read().unwrap().len());
         let name = if let Some((_, slot)) = self.find_instance_field(class_ref, "name")? {
             let value = self
                 .heap()
@@ -205,31 +236,35 @@ impl VM {
 
             match value {
                 Some(Value::Reference(Some(name_ref))) => self.java_string_to_rust(name_ref)?,
-                _ => format!("Thread-{}", self.threads.len()),
+                _ => fallback_name,
             }
         } else {
-            format!("Thread-{}", self.threads.len())
+            fallback_name
         };
 
         let thread_ref = self.create_thread(name);
 
-        self.thread_objects.insert(thread_ref, object_ref);
-        self.thread_by_object.insert(object_ref, thread_ref);
+        let mut objects = self.thread_objects.write().unwrap();
+        let mut by_object = self.thread_by_object.write().unwrap();
+        if let Some(existing) = by_object.get(&object_ref) {
+            return Ok(*existing);
+        }
+        objects.insert(thread_ref, object_ref);
+        by_object.insert(object_ref, thread_ref);
 
         Ok(thread_ref)
     }
 
-    pub fn allocate_string(&mut self, s: &str) -> Result<ObjectRef, RuntimeError> {
+    pub fn allocate_string(&self, s: &str) -> Result<ObjectRef, RuntimeError> {
         let string_class = self.resolve_class("java/lang/String")?;
         self.ensure_class_initialized(string_class)?;
 
         let units: Vec<u16> = s.encode_utf16().collect();
 
         let array_ref =
-            self.heap_mut()
+            self.heap()
                 .allocate_array(string_class, ArrayElementType::Char, units.len());
-
-        self.heap_mut().with_array_mut(array_ref, |array| {
+        self.heap().with_array_mut(array_ref, |array| {
             for (slot, unit) in array.elements.iter_mut().zip(units.iter()) {
                 *slot = Value::Int(*unit as i32);
             }
@@ -237,12 +272,10 @@ impl VM {
         })?;
 
         let defaults = self.default_field_values(string_class)?;
-        let obj_ref = self
-            .heap_mut()
-            .allocate_object_typed(string_class, &defaults);
+        let obj_ref = self.heap().allocate_object_typed(string_class, &defaults);
 
         if let Some((_, slot)) = self.find_instance_field(string_class, "value")? {
-            self.heap_mut().with_object_mut(obj_ref, |o| {
+            self.heap().with_object_mut(obj_ref, |o| {
                 o.fields[slot] = Value::Reference(Some(array_ref));
                 Ok(())
             })?;
@@ -251,18 +284,24 @@ impl VM {
         Ok(obj_ref)
     }
 
-    pub fn intern_string(&mut self, s: &str) -> Result<ObjectRef, RuntimeError> {
-        if let Some(existing) = self.string_pool.get(s) {
+    pub fn intern_string(&self, s: &str) -> Result<ObjectRef, RuntimeError> {
+        if let Some(existing) = self.string_pool.read().unwrap().get(s) {
             return Ok(*existing);
         }
         let obj_ref = self.allocate_string(s)?;
-        self.string_pool.insert(s.to_string(), obj_ref);
+        let mut pool = self.string_pool.write().unwrap();
+        if let Some(existing) = pool.get(s) {
+            return Ok(*existing);
+        }
+        pool.insert(s.to_string(), obj_ref);
         Ok(obj_ref)
     }
 
     pub fn java_string_to_rust(&self, r: ObjectRef) -> Result<String, RuntimeError> {
         let string_class = self
             .classes_by_name
+            .read()
+            .unwrap()
             .get("java/lang/String")
             .copied()
             .ok_or_else(|| {
@@ -273,12 +312,13 @@ impl VM {
 
         let obj_class = self.heap().class_of(r)?;
         if !self.is_assignable(obj_class, string_class)? {
+            let found = self
+                .get_class(obj_class)
+                .map(|c| c.name.clone())
+                .unwrap_or_default();
             return Err(RuntimeError::Internal(InternalError::InvalidHeapEntry {
                 expected: "java.lang.String",
-                found: self
-                    .get_class(obj_class)
-                    .map(|c| c.name.clone())
-                    .unwrap_or_default(),
+                found,
             }));
         }
 
@@ -313,47 +353,12 @@ impl VM {
         Ok(String::from_utf16_lossy(&units))
     }
 
-    fn register_primitive_class(&mut self, name: &str) -> ClassRef {
-        let class_ref = ClassRef(self.classes.len());
-
-        let class = RuntimeClass::primitive(name);
-
-        self.classes.push(class);
-        self.classes_by_name.insert(name.to_string(), class_ref);
-
-        class_ref
+    pub fn set_classpath(&self, classpath: ClassPath) {
+        *self.classpath.lock().unwrap() = classpath;
     }
 
-    fn bootstrap_primitives(&mut self) {
-        let boolean = self.register_primitive_class("boolean");
-        let byte = self.register_primitive_class("byte");
-        let char = self.register_primitive_class("char");
-        let short = self.register_primitive_class("short");
-        let int = self.register_primitive_class("int");
-        let long = self.register_primitive_class("long");
-        let float = self.register_primitive_class("float");
-        let double = self.register_primitive_class("double");
-        let void = self.register_primitive_class("void");
-
-        self.primitive_classes = PrimitiveClasses {
-            boolean,
-            byte,
-            char,
-            short,
-            int,
-            long,
-            float,
-            double,
-            void,
-        };
-    }
-
-    pub fn set_classpath(&mut self, classpath: ClassPath) {
-        self.classpath = classpath;
-    }
-
-    pub fn resolve_class(&mut self, binary_name: &str) -> Result<ClassRef, RuntimeError> {
-        if let Some(existing) = self.classes_by_name.get(binary_name) {
+    pub fn resolve_class(&self, binary_name: &str) -> Result<ClassRef, RuntimeError> {
+        if let Some(existing) = self.classes_by_name.read().unwrap().get(binary_name) {
             return Ok(*existing);
         }
 
@@ -361,12 +366,13 @@ impl VM {
             return self.resolve_array_class(binary_name);
         }
 
-        let data =
-            self.classpath
-                .find_class(binary_name)
-                .ok_or_else(|| InternalError::ClassNotFound {
-                    class: binary_name.to_string(),
-                })?;
+        let data = {
+            let mut cp = self.classpath.lock().unwrap();
+            cp.find_class(binary_name)
+        }
+        .ok_or_else(|| InternalError::ClassNotFound {
+            class: binary_name.to_string(),
+        })?;
 
         let mut reader = ClassReader::new(data);
         let class_file =
@@ -378,15 +384,20 @@ impl VM {
         self.load_class(class_file)
     }
 
-    fn resolve_array_class(&mut self, descriptor: &str) -> Result<ClassRef, RuntimeError> {
-        if let Some(existing) = self.classes_by_name.get(descriptor) {
+    fn resolve_array_class(&self, descriptor: &str) -> Result<ClassRef, RuntimeError> {
+        if let Some(existing) = self.classes_by_name.read().unwrap().get(descriptor) {
             return Ok(*existing);
         }
 
         let object_class = self.resolve_class("java/lang/Object")?;
 
-        let class_ref = ClassRef(self.classes.len());
+        let mut classes = self.classes.write().unwrap();
+        let mut classes_by_name = self.classes_by_name.write().unwrap();
+        if let Some(existing) = classes_by_name.get(descriptor) {
+            return Ok(*existing);
+        }
 
+        let class_ref = ClassRef(classes.len());
         let class = RuntimeClass {
             name: descriptor.to_string(),
             super_class: Some(object_class),
@@ -400,28 +411,27 @@ impl VM {
             interfaces: Vec::new(),
         };
 
-        self.classes.push(class);
-        self.classes_by_name
-            .insert(descriptor.to_string(), class_ref);
+        classes.push(Arc::new(class));
+        classes_by_name.insert(descriptor.to_string(), class_ref);
 
         Ok(class_ref)
     }
 
-    pub fn get_class(&self, class_index: ClassRef) -> Result<&RuntimeClass, RuntimeError> {
-        let option = self.classes.get(class_index.0);
-
-        match option {
-            Some(class) => return Ok(class),
-            None => {
-                return Err(RuntimeError::Internal(InternalError::ClassNotFound {
-                    class: format!("(index {}", class_index.0),
-                }));
-            }
-        }
+    pub fn get_class(&self, class_index: ClassRef) -> Result<Arc<RuntimeClass>, RuntimeError> {
+        self.classes
+            .read()
+            .unwrap()
+            .get(class_index.0)
+            .cloned()
+            .ok_or_else(|| {
+                RuntimeError::Internal(InternalError::ClassNotFound {
+                    class: format!("(index {})", class_index.0),
+                })
+            })
     }
 
     pub fn invoke_static_to_completion(
-        &mut self,
+        &self,
         class_ref: ClassRef,
         name: &str,
         descriptor: &str,
@@ -448,68 +458,68 @@ impl VM {
         &self,
         class_index: ClassRef,
         method_index: usize,
-    ) -> Result<&RuntimeMethod, RuntimeError> {
-        let class =
-            self.classes
-                .get(class_index.0)
-                .ok_or_else(|| InternalError::ClassNotFound {
-                    class: format!("(index {}", class_index.0),
-                })?;
-
-        let method =
-            class
-                .methods
-                .get(method_index)
-                .ok_or_else(|| InternalError::MethodNotFound {
-                    class: class.name.clone(),
-                    method: format!("(index {}", method_index),
-                })?;
-
-        Ok(method)
+    ) -> Result<RuntimeMethod, RuntimeError> {
+        let class = self.get_class(class_index)?;
+        class.methods.get(method_index).cloned().ok_or_else(|| {
+            RuntimeError::Internal(InternalError::MethodNotFound {
+                class: class.name.clone(),
+                method: format!("(index {})", method_index),
+            })
+        })
     }
 
-    pub fn add_class(&mut self, class: RuntimeClass) -> ClassRef {
-        let id = self.classes.len();
-        if let Some(existing) = self
-            .classes_by_name
-            .insert(class.name.clone(), ClassRef(id))
-        {
-            println!(
+    pub fn add_class(&self, class: RuntimeClass) -> ClassRef {
+        let mut classes = self.classes.write().unwrap();
+        let mut classes_by_name = self.classes_by_name.write().unwrap();
+
+        let id = classes.len();
+        if let Some(existing) = classes_by_name.insert(class.name.clone(), ClassRef(id)) {
+            eprintln!(
                 "warning: class `{}` registered twice (old ref {:?}, new ref {:?})",
                 class.name,
                 existing,
                 ClassRef(id)
             );
         }
-        self.classes.push(class);
+        classes.push(Arc::new(class));
         ClassRef(id)
     }
 
-    pub fn create_thread(&mut self, name: impl Into<String>) -> ThreadRef {
-        let id = self.threads.len();
-        self.threads.push(Thread::new(ThreadRef(id), name));
-        ThreadRef(id)
+    pub fn create_thread(&self, name: impl Into<String>) -> ThreadRef {
+        let id = self.next_thread_id.fetch_add(1, Ordering::Relaxed);
+        let thread_ref = ThreadRef(id);
+        let thread = Arc::new(Thread::new(thread_ref, name));
+        self.threads.write().unwrap().insert(thread_ref, thread);
+        thread_ref
     }
 
-    pub fn get_thread(&mut self, thread_ref: ThreadRef) -> Result<&mut Thread, RuntimeError> {
-        let option = self.threads.get_mut(thread_ref.0);
-
-        match option {
-            Some(thread) => Ok(thread),
-            None => Err(RuntimeError::Internal(InternalError::ThreadNotFound {
+    pub fn get_thread(&self, thread_ref: ThreadRef) -> Result<Arc<Thread>, RuntimeError> {
+        self.threads
+            .read()
+            .unwrap()
+            .get(&thread_ref)
+            .cloned()
+            .ok_or(RuntimeError::Internal(InternalError::ThreadNotFound {
                 thread_id: thread_ref.0,
-            })),
-        }
+            }))
     }
 
-    pub fn ensure_class_initialized(&mut self, class_ref: ClassRef) -> Result<(), RuntimeError> {
-        if self.static_storage.contains_key(&class_ref) {
+    // todo: JLS specifies that all other threads block until <clinit> completes
+    pub fn ensure_class_initialized(&self, class_ref: ClassRef) -> Result<(), RuntimeError> {
+        if self.static_storage.read().unwrap().contains_key(&class_ref) {
             return Ok(());
         }
 
         let defaults = self.default_static_field_values(class_ref)?;
-        let storage_ref = self.heap_mut().allocate_object_typed(class_ref, &defaults);
-        self.static_storage.insert(class_ref, storage_ref);
+        let storage_ref = self.heap().allocate_object_typed(class_ref, &defaults);
+
+        {
+            let mut storage = self.static_storage.write().unwrap();
+            if storage.contains_key(&class_ref) {
+                return Ok(());
+            }
+            storage.insert(class_ref, storage_ref);
+        }
 
         if let Some(clinit_idx) = self.get_class(class_ref)?.find_method("<clinit>", "()V") {
             let method = self.get_method(class_ref, clinit_idx)?;
@@ -526,14 +536,19 @@ impl VM {
     }
 
     pub fn static_storage_ref(&self, class_ref: ClassRef) -> Result<ObjectRef, RuntimeError> {
-        self.static_storage.get(&class_ref).copied().ok_or_else(|| {
-            RuntimeError::Internal(InternalError::ClassNotFound {
-                class: format!("(statics uninitialized for class index {})", class_ref.0),
+        self.static_storage
+            .read()
+            .unwrap()
+            .get(&class_ref)
+            .copied()
+            .ok_or_else(|| {
+                RuntimeError::Internal(InternalError::ClassNotFound {
+                    class: format!("(statics uninitialized for class index {})", class_ref.0),
+                })
             })
-        })
     }
 
-    pub fn load_class(&mut self, class_file: ClassFile) -> Result<ClassRef, RuntimeError> {
+    pub fn load_class(&self, class_file: ClassFile) -> Result<ClassRef, RuntimeError> {
         let super_class = if class_file.super_class == 0 {
             None
         } else {
@@ -554,7 +569,21 @@ impl VM {
             None => 0,
         };
 
-        let id = self.classes.len();
+        let name = class_file
+            .constant_pool
+            .get_class_name(class_file.this_class)?;
+
+        if let Some(existing) = self.classes_by_name.read().unwrap().get(&name) {
+            return Ok(*existing);
+        }
+
+        let mut classes = self.classes.write().unwrap();
+        let mut classes_by_name = self.classes_by_name.write().unwrap();
+        if let Some(existing) = classes_by_name.get(&name) {
+            return Ok(*existing); // lost the race
+        }
+
+        let id = classes.len();
         let class_ref = ClassRef(id);
         let runtime_class = RuntimeClass::from_class_file(
             &class_file,
@@ -564,26 +593,25 @@ impl VM {
             interfaces,
         )?;
 
-        self.classes_by_name
-            .insert(runtime_class.name.clone(), class_ref);
-        self.classes.push(runtime_class);
+        classes_by_name.insert(runtime_class.name.clone(), class_ref);
+        classes.push(Arc::new(runtime_class));
 
         Ok(class_ref)
     }
 
-    pub fn run_main(&mut self, main_class: &str) -> Result<Value, RuntimeError> {
+    pub fn run_main(&self, main_class: &str) -> Result<Value, RuntimeError> {
         let main_thread = self.create_thread("main");
-        self.main_thread = main_thread;
+        *self.main_thread.write().unwrap() = main_thread;
         self.get_thread(main_thread)?.start();
 
         let system_class = self.resolve_class("java/lang/System")?;
         self.ensure_class_initialized(system_class)?;
         self.invoke_static_to_completion(system_class, "initializeSystemClass", "()V")?;
 
-        let main_class: ClassRef = self.resolve_class(main_class)?;
+        let main_class_ref: ClassRef = self.resolve_class(main_class)?;
         let mut main_method_idx: Option<usize> = None;
 
-        for (j, method) in self.get_class(main_class)?.methods.iter().enumerate() {
+        for (j, method) in self.get_class(main_class_ref)?.methods.iter().enumerate() {
             if method.name == "main"
                 && method.descriptor == "([Ljava/lang/String;)I"
                 && method.access.contains(MethodAccessFlags::STATIC)
@@ -594,24 +622,16 @@ impl VM {
         }
 
         let method_idx = main_method_idx.unwrap();
+        let method = self.get_method(main_class_ref, method_idx)?;
+        let (max_locals, max_stack) = (method.max_locals, method.max_stack);
 
-        let method = self.get_method(main_class, method_idx)?;
-
-        let max_locals = method.max_locals;
-        let max_stack = method.max_stack;
-
-        let frame = Frame::new(max_locals, max_stack, main_class, method_idx);
+        let frame = Frame::new(max_locals, max_stack, main_class_ref, method_idx);
         self.get_thread(main_thread)?.push_frame(frame);
-        let result = Interpreter::run(self, main_thread)?;
-        Ok(result)
+        Interpreter::run(self, main_thread)
     }
 
     pub fn heap(&self) -> &Heap {
         &self.heap
-    }
-
-    pub fn heap_mut(&mut self) -> &mut Heap {
-        &mut self.heap
     }
 
     pub fn primitive_classes(&self) -> &PrimitiveClasses {
@@ -658,53 +678,49 @@ impl VM {
     }
 
     pub fn resolve_virtual_method(
-        &mut self,
+        &self,
         start: ClassRef,
         name: &str,
         descriptor: &str,
     ) -> Result<(ClassRef, usize), RuntimeError> {
         let key = (start, name.to_string(), descriptor.to_string());
 
-        if let Some(resolved) = self.virtual_method_cache.get(&key) {
+        if let Some(resolved) = self.virtual_method_cache.read().unwrap().get(&key) {
             return Ok((resolved.class, resolved.method));
         }
 
-        let resolved = {
-            let mut current = Some(start);
-
-            let mut result = None;
-
-            while let Some(class_ref) = current {
-                let class = self.get_class(class_ref)?;
-
-                if let Some(index) = class.find_method(name, descriptor) {
-                    result = Some(ResolvedMethod {
-                        class: class_ref,
-                        method: index,
-                    });
-                    break;
-                }
-
-                current = class.super_class;
+        let mut current = Some(start);
+        let mut result = None;
+        while let Some(class_ref) = current {
+            let class = self.get_class(class_ref)?;
+            if let Some(index) = class.find_method(name, descriptor) {
+                result = Some(ResolvedMethod {
+                    class: class_ref,
+                    method: index,
+                });
+                break;
             }
+            current = class.super_class;
+        }
 
-            result.ok_or_else(|| {
-                RuntimeError::Internal(InternalError::MethodNotFound {
-                    class: self
-                        .get_class(start)
-                        .map(|c| c.name.clone())
-                        .unwrap_or_else(|_| format!("class {}", start.0)),
-                    method: name.to_string(),
-                })
-            })?
-        };
+        let resolved = result.ok_or_else(|| {
+            RuntimeError::Internal(InternalError::MethodNotFound {
+                class: self
+                    .get_class(start)
+                    .map(|c| c.name.clone())
+                    .unwrap_or_else(|_| format!("class {}", start.0)),
+                method: name.to_string(),
+            })
+        })?;
 
-        self.virtual_method_cache.insert(key, resolved);
-
+        self.virtual_method_cache
+            .write()
+            .unwrap()
+            .insert(key, resolved);
         Ok((resolved.class, resolved.method))
     }
 
-    pub fn throw(&mut self, class_name: &str, message: Option<&str>) -> RuntimeError {
+    pub fn throw(&self, class_name: &str, message: Option<&str>) -> RuntimeError {
         let class_ref = match self.resolve_class(class_name) {
             Ok(c) => c,
             Err(e) => return e,
@@ -714,7 +730,7 @@ impl VM {
         self.ensure_class_initialized(class_ref);
 
         let defaults = self.default_field_values(class_ref).unwrap();
-        let obj_ref = self.heap_mut().allocate_object_typed(class_ref, &defaults);
+        let obj_ref = self.heap().allocate_object_typed(class_ref, &defaults);
 
         if let Some(msg) = message {
             if let Ok(Some((_, slot))) = self.find_instance_field(class_ref, "detailMessage") {
@@ -733,15 +749,15 @@ impl VM {
                     .with_object(obj_ref, |o| Ok(o.fields.len()))
                     .unwrap_or(0);
 
-                let set =
-                    self.heap_mut()
-                        .with_object_mut(obj_ref, |o| match o.fields.get_mut(slot) {
-                            Some(field) => {
-                                *field = Value::Reference(Some(str_ref));
-                                Ok(true)
-                            }
-                            None => Ok(false),
-                        });
+                let set = self
+                    .heap()
+                    .with_object_mut(obj_ref, |o| match o.fields.get_mut(slot) {
+                        Some(field) => {
+                            *field = Value::Reference(Some(str_ref));
+                            Ok(true)
+                        }
+                        None => Ok(false),
+                    });
 
                 if matches!(set, Ok(false)) {
                     println!(
@@ -840,13 +856,15 @@ impl VM {
         Ok(fields)
     }
 
-    pub fn class_object_for(&mut self, class_ref: ClassRef) -> ObjectRef {
-        if let Some(existing) = self.class_objects.get(&class_ref) {
+    pub fn class_object_for(&self, class_ref: ClassRef) -> ObjectRef {
+        if let Some(existing) = self.class_objects.read().unwrap().get(&class_ref) {
             return *existing;
         }
 
         let class_class = self
             .classes_by_name
+            .read()
+            .unwrap()
             .get("java/lang/Class")
             .copied()
             .expect("java/lang/Class must be loaded before creating Class objects");
@@ -855,21 +873,24 @@ impl VM {
             .default_field_values(class_class)
             .expect("java/lang/Class fields must be valid");
 
-        let obj_ref =
-            self.heap_mut()
-                .allocate_class_object_typed(class_class, class_ref, &defaults);
+        let obj_ref = self
+            .heap()
+            .allocate_class_object_typed(class_class, class_ref, &defaults);
 
-        self.class_objects.insert(class_ref, obj_ref);
-
+        let mut guard = self.class_objects.write().unwrap();
+        if let Some(existing) = guard.get(&class_ref) {
+            return *existing; // lost the race
+        }
+        guard.insert(class_ref, obj_ref);
         obj_ref
     }
 
-    pub fn runtime_class_of(&mut self, obj_ref: ObjectRef) -> Result<ClassRef, RuntimeError> {
+    pub fn runtime_class_of(&self, obj_ref: ObjectRef) -> Result<ClassRef, RuntimeError> {
         self.heap().class_of(obj_ref)
     }
 
     pub fn invoke_virtual_to_completion(
-        &mut self,
+        &self,
         receiver: ObjectRef,
         method_name: &str,
         descriptor: &str,
@@ -878,10 +899,8 @@ impl VM {
         let obj_class = self.runtime_class_of(receiver)?;
         let (resolved_class, method_idx) =
             self.resolve_virtual_method(obj_class, method_name, descriptor)?;
-        let (max_locals, max_stack) = {
-            let m = &self.get_class(resolved_class)?.methods[method_idx];
-            (m.max_locals, m.max_stack)
-        };
+        let method = self.get_method(resolved_class, method_idx)?;
+        let (max_locals, max_stack) = (method.max_locals, method.max_stack);
 
         let thread = self.create_thread("virtual-invoke");
         self.get_thread(thread)?.start();

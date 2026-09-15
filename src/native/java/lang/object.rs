@@ -25,7 +25,7 @@ pub fn hash_code(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value
     let obj_ref = match args.first() {
         Some(Value::Reference(Some(r))) => *r,
         Some(Value::Reference(None)) => {
-            return Err(ctx.vm_mut().throw(
+            return Err(ctx.vm().throw(
                 "java/lang/NullPointerException",
                 Some("Object.hashCode() called on null"),
             ));
@@ -83,8 +83,8 @@ pub fn get_class(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value
         }
     };
 
-    let runtime_class = ctx.vm_mut().runtime_class_of(object_ref)?;
-    let class_object = ctx.vm_mut().class_object_for(runtime_class);
+    let runtime_class = ctx.vm().runtime_class_of(object_ref)?;
+    let class_object = ctx.vm().class_object_for(runtime_class);
 
     Ok(Some(Value::Reference(Some(class_object))))
 }

@@ -5,21 +5,17 @@ use crate::{
 
 #[allow(dead_code)]
 pub struct NativeContext<'a> {
-    vm: &'a mut VM,
+    vm: &'a VM,
     thread: ThreadRef,
 }
 
 #[allow(dead_code)]
 impl<'a> NativeContext<'a> {
-    pub fn new(vm: &'a mut VM, thread: ThreadRef) -> Self {
+    pub fn new(vm: &'a VM, thread: ThreadRef) -> Self {
         Self { vm, thread }
     }
 
     pub fn vm(&self) -> &VM {
-        self.vm
-    }
-
-    pub fn vm_mut(&mut self) -> &mut VM {
         self.vm
     }
 

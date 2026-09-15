@@ -30,10 +30,10 @@ pub enum StepOutcome {
 pub struct Interpreter;
 
 impl Interpreter {
-    pub fn run(vm: &mut VM, thread_ref: ThreadRef) -> Result<Value, RuntimeError> {
+    pub fn run(vm: &VM, thread_ref: ThreadRef) -> Result<Value, RuntimeError> {
         let thread = vm.get_thread(thread_ref)?;
 
-        debug_assert_eq!(*thread.state(), ThreadState::Runnable);
+        debug_assert_eq!(thread.state(), ThreadState::Runnable);
 
         loop {
             match Self::step(vm, thread_ref) {
@@ -52,7 +52,7 @@ impl Interpreter {
     }
 
     fn unwind_to_handler(
-        vm: &mut VM,
+        vm: &VM,
         thread_ref: ThreadRef,
         obj_ref: ObjectRef,
     ) -> Result<bool, RuntimeError> {
@@ -61,10 +61,13 @@ impl Interpreter {
         loop {
             let (frame_class, frame_method_idx, pc) = {
                 let thread = vm.get_thread(thread_ref)?;
-                match thread.current_frame() {
-                    Some(f) => (f.class, f.method_index, f.pc),
-                    None => return Ok(false),
-                }
+                let mut frames_guard = thread.lock_frames();
+                let frame = frames_guard
+                    .last_mut()
+                    .ok_or(InternalError::NoCurrentFrame {
+                        thread_id: thread_ref.0,
+                    })?;
+                (frame.class, frame.method_index, frame.pc)
             };
 
             let handlers = vm
@@ -85,7 +88,13 @@ impl Interpreter {
                     }
                 };
                 if matches {
-                    let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                    let thread = vm.get_thread(thread_ref)?;
+                    let mut frames_guard = thread.lock_frames();
+                    let frame = frames_guard
+                        .last_mut()
+                        .ok_or(InternalError::NoCurrentFrame {
+                            thread_id: thread_ref.0,
+                        })?;
                     frame.pc = h.handler_pc as usize;
                     frame.operand_stack.clear();
                     frame.push_value(Value::Reference(Some(obj_ref)));
@@ -97,15 +106,16 @@ impl Interpreter {
         }
     }
 
-    fn step(vm: &mut VM, thread_ref: ThreadRef) -> Result<StepOutcome, RuntimeError> {
+    fn step(vm: &VM, thread_ref: ThreadRef) -> Result<StepOutcome, RuntimeError> {
         let (frame_class, frame_method_idx) = {
             let thread = vm.get_thread(thread_ref)?;
-            let f = thread
-                .current_frame()
+            let mut frames_guard = thread.lock_frames();
+            let frame = frames_guard
+                .last_mut()
                 .ok_or(InternalError::NoCurrentFrame {
                     thread_id: thread_ref.0,
                 })?;
-            (f.class, f.method_index)
+            (frame.class, frame.method_index)
         };
         let body = vm.get_method(frame_class, frame_method_idx)?.body.clone();
 
@@ -124,7 +134,14 @@ impl Interpreter {
             };
         }
 
-        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+        let thread = vm.get_thread(thread_ref)?;
+        let mut frames_guard = thread.lock_frames();
+        let frame = frames_guard
+            .last_mut()
+            .ok_or(InternalError::NoCurrentFrame {
+                thread_id: thread_ref.0,
+            })?;
+
         match body {
             MethodBody::Bytecode(code) => {
                 let op = code[frame.pc];
@@ -679,70 +696,21 @@ impl Interpreter {
                         }
                     }
 
-                    Opcode::IReturn => {
+                    Opcode::IReturn
+                    | Opcode::LReturn
+                    | Opcode::FReturn
+                    | Opcode::DReturn
+                    | Opcode::AReturn => {
                         let ret = frame
                             .pop_value()
                             .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
 
-                        vm.get_thread(thread_ref)?.pop_frame();
+                        drop(frames_guard);
 
-                        match vm.get_thread(thread_ref)?.current_frame() {
-                            Some(caller) => caller.push_value(ret),
-                            None => return Ok(StepOutcome::Return(ret)),
-                        }
-                    }
+                        thread.pop_frame();
 
-                    Opcode::LReturn => {
-                        let ret = frame
-                            .pop_value()
-                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
-
-                        vm.get_thread(thread_ref)?.pop_frame();
-
-                        match vm.get_thread(thread_ref)?.current_frame() {
-                            Some(caller) => caller.push_value(ret),
-                            None => return Ok(StepOutcome::Return(ret)),
-                        }
-                    }
-
-                    Opcode::FReturn => {
-                        let ret = frame
-                            .pop_value()
-                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
-
-                        vm.get_thread(thread_ref)?.pop_frame();
-
-                        match vm.get_thread(thread_ref)?.current_frame() {
-                            Some(caller) => caller.push_value(ret),
-                            None => return Ok(StepOutcome::Return(ret)),
-                        }
-                    }
-
-                    Opcode::DReturn => {
-                        let ret = frame
-                            .pop_value()
-                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
-
-                        vm.get_thread(thread_ref)?.pop_frame();
-
-                        match vm.get_thread(thread_ref)?.current_frame() {
-                            Some(caller) => caller.push_value(ret),
-                            None => return Ok(StepOutcome::Return(ret)),
-                        }
-                    }
-
-                    Opcode::AReturn => {
-                        let ret = frame
-                            .pop_value()
-                            .ok_or(InternalError::OperandStackUnderflow { pc: frame.pc })?;
-
-                        if !matches!(ret, Value::Reference(_)) {
-                            return Err(invalid_type!(frame.pc, "Reference", ret));
-                        }
-
-                        vm.get_thread(thread_ref)?.pop_frame();
-
-                        match vm.get_thread(thread_ref)?.current_frame() {
+                        let mut frames_guard = thread.lock_frames();
+                        match frames_guard.last_mut() {
                             Some(caller) => caller.push_value(ret),
                             None => return Ok(StepOutcome::Return(ret)),
                         }
@@ -807,8 +775,9 @@ impl Interpreter {
                     }
 
                     Opcode::Return => {
-                        vm.get_thread(thread_ref)?.pop_frame();
-                        if vm.get_thread(thread_ref)?.current_frame().is_none() {
+                        drop(frames_guard);
+                        thread.pop_frame();
+                        if thread.lock_frames().last().is_none() {
                             return Ok(StepOutcome::Return(Value::Empty));
                         }
                     }
@@ -1060,8 +1029,6 @@ impl Interpreter {
                             .ok_or(InternalError::InvalidSlot)?;
 
                         let value = vm.heap().get_object(objectref)?.fields[slot].clone();
-
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                         frame.push_value(value);
                     }
 
@@ -1090,7 +1057,7 @@ impl Interpreter {
                             .map(|(_, slot)| slot)
                             .ok_or(InternalError::InvalidSlot)?;
 
-                        vm.heap_mut().with_object_mut(objectref, |o| {
+                        vm.heap().with_object_mut(objectref, |o| {
                             o.fields[slot] = value;
                             Ok(())
                         })?;
@@ -1125,11 +1092,15 @@ impl Interpreter {
                             .len();
 
                         let (args, objectref) = {
-                            let current_frame = vm.get_thread(thread_ref)?.current_frame().ok_or(
-                                InternalError::NoCurrentFrame {
-                                    thread_id: thread_ref.0,
-                                },
-                            )?;
+                            let thread = vm.get_thread(thread_ref)?;
+                            drop(frames_guard);
+                            let mut frames_guard = thread.lock_frames();
+                            let current_frame =
+                                frames_guard
+                                    .last_mut()
+                                    .ok_or(InternalError::NoCurrentFrame {
+                                        thread_id: thread_ref.0,
+                                    })?;
 
                             let mut args = Vec::with_capacity(parameter_count);
                             for _ in 0..parameter_count {
@@ -1286,11 +1257,15 @@ impl Interpreter {
                         };
 
                         let args = {
-                            let frame = vm.get_thread(thread_ref)?.current_frame().ok_or(
-                                InternalError::NoCurrentFrame {
-                                    thread_id: thread_ref.0,
-                                },
-                            )?;
+                            let thread = vm.get_thread(thread_ref)?;
+                            drop(frames_guard);
+                            let mut frames_guard = thread.lock_frames();
+                            let frame =
+                                frames_guard
+                                    .last_mut()
+                                    .ok_or(InternalError::NoCurrentFrame {
+                                        thread_id: thread_ref.0,
+                                    })?;
 
                             let mut args = Vec::with_capacity(argument_count);
 
@@ -1386,11 +1361,7 @@ impl Interpreter {
                         let target_class_ref = vm.resolve_class(&class_name)?;
                         vm.ensure_class_initialized(target_class_ref)?;
                         let defaults = vm.default_field_values(target_class_ref)?;
-                        let obj_ref = vm
-                            .heap_mut()
-                            .allocate_object_typed(target_class_ref, &defaults);
-
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                        let obj_ref = vm.heap().allocate_object_typed(target_class_ref, &defaults);
                         frame.push_value(Value::Reference(Some(obj_ref)));
                     }
 
@@ -1839,11 +1810,7 @@ impl Interpreter {
 
                         let array_class = vm.resolve_class(&array_descriptor)?;
 
-                        let array_ref =
-                            vm.heap_mut()
-                                .allocate_array(array_class, array_type, length);
-
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                        let array_ref = vm.heap().allocate_array(array_class, array_type, length);
 
                         frame.push_value(Value::Reference(Some(array_ref)));
                     }
@@ -2010,13 +1977,11 @@ impl Interpreter {
 
                         let array_class = vm.resolve_class(&array_descriptor)?;
 
-                        let array_ref = vm.heap_mut().allocate_array(
+                        let array_ref = vm.heap().allocate_array(
                             array_class,
                             ArrayElementType::Reference(component_class),
                             length,
                         );
-
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                         frame.push_value(Value::Reference(Some(array_ref)));
                     }
 
@@ -2068,7 +2033,7 @@ impl Interpreter {
                             }
                         }
 
-                        vm.heap_mut().with_array_mut(reference, |a| {
+                        vm.heap().with_array_mut(reference, |a| {
                             a.elements[index] = Value::Int(value);
                             Ok(())
                         })?;
@@ -2121,7 +2086,7 @@ impl Interpreter {
                                 ));
                             }
                         }
-                        vm.heap_mut().with_array_mut(reference, |a| {
+                        vm.heap().with_array_mut(reference, |a| {
                             a.elements[index] = Value::Int(value);
                             Ok(())
                         })?;
@@ -2174,7 +2139,7 @@ impl Interpreter {
                                 ));
                             }
                         }
-                        vm.heap_mut().with_array_mut(reference, |a| {
+                        vm.heap().with_array_mut(reference, |a| {
                             a.elements[index] = Value::Long(value);
                             Ok(())
                         })?;
@@ -2227,7 +2192,7 @@ impl Interpreter {
                                 ));
                             }
                         }
-                        vm.heap_mut().with_array_mut(reference, |a| {
+                        vm.heap().with_array_mut(reference, |a| {
                             a.elements[index] = Value::Float(value);
                             Ok(())
                         })?;
@@ -2280,7 +2245,7 @@ impl Interpreter {
                                 ));
                             }
                         }
-                        vm.heap_mut().with_array_mut(reference, |a| {
+                        vm.heap().with_array_mut(reference, |a| {
                             a.elements[index] = Value::Double(value);
                             Ok(())
                         })?;
@@ -2333,7 +2298,7 @@ impl Interpreter {
                                 ));
                             }
                         }
-                        vm.heap_mut().with_array_mut(reference, |a| {
+                        vm.heap().with_array_mut(reference, |a| {
                             a.elements[index] = Value::Int(value); // both boolean and its are represented as integers
                             Ok(())
                         })?;
@@ -2386,7 +2351,7 @@ impl Interpreter {
                                 ));
                             }
                         }
-                        vm.heap_mut().with_array_mut(reference, |a| {
+                        vm.heap().with_array_mut(reference, |a| {
                             a.elements[index] = Value::Int(value); // shorts are represented using integers
                             Ok(())
                         })?;
@@ -2422,7 +2387,7 @@ impl Interpreter {
 
                         let value = {
                             let result = {
-                                let array = vm.heap_mut().get_array(reference)?;
+                                let array = vm.heap().get_array(reference)?;
 
                                 if let Some(v) = array.elements.get(index) {
                                     Ok(v.clone())
@@ -2444,8 +2409,6 @@ impl Interpreter {
                                 }
                             }
                         };
-
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                         frame.push_value(value);
                     }
 
@@ -2479,7 +2442,7 @@ impl Interpreter {
 
                         let value = {
                             let result = {
-                                let array = vm.heap_mut().get_array(reference)?;
+                                let array = vm.heap().get_array(reference)?;
 
                                 if let Some(v) = array.elements.get(index) {
                                     Ok(v.clone())
@@ -2501,8 +2464,6 @@ impl Interpreter {
                                 }
                             }
                         };
-
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                         frame.push_value(value);
                     }
 
@@ -2524,10 +2485,8 @@ impl Interpreter {
                             }
                         };
 
-                        let array = vm.heap_mut().get_array(reference)?;
+                        let array = vm.heap().get_array(reference)?;
                         let length = array.elements.len();
-
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                         frame.push_value(Value::Int(length as i32));
                     }
 
@@ -2605,7 +2564,7 @@ impl Interpreter {
 
                         {
                             let len = {
-                                let array = vm.heap_mut().get_array(reference)?;
+                                let array = vm.heap().get_array(reference)?;
                                 array.elements.len()
                             };
 
@@ -2620,7 +2579,7 @@ impl Interpreter {
                             }
                         }
 
-                        vm.heap_mut().with_array_mut(reference, |a| {
+                        vm.heap().with_array_mut(reference, |a| {
                             a.elements[index as usize] = value;
                             Ok(())
                         })?;
@@ -2671,8 +2630,6 @@ impl Interpreter {
                                 }
                             }
                         };
-
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                         frame.push_value(value);
                     }
 
@@ -2721,8 +2678,6 @@ impl Interpreter {
                                 }
                             }
                         };
-
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                         frame.push_value(value);
                     }
 
@@ -2771,8 +2726,6 @@ impl Interpreter {
                                 }
                             }
                         };
-
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                         frame.push_value(value);
                     }
 
@@ -2821,8 +2774,6 @@ impl Interpreter {
                                 }
                             }
                         };
-
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                         frame.push_value(value);
                     }
 
@@ -2871,8 +2822,6 @@ impl Interpreter {
                                 }
                             }
                         };
-
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                         frame.push_value(value);
                     }
 
@@ -2921,8 +2870,6 @@ impl Interpreter {
                                 }
                             }
                         };
-
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                         frame.push_value(value);
                     }
 
@@ -2946,8 +2893,6 @@ impl Interpreter {
                             .slot;
                         let storage_ref = vm.static_storage_ref(owner_ref)?;
                         let value = vm.heap().get_object(storage_ref)?.fields[slot].clone();
-
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                         frame.push_value(value);
                     }
 
@@ -2974,7 +2919,7 @@ impl Interpreter {
                             .ok_or(InternalError::InvalidSlot)?
                             .slot;
                         let storage_ref = vm.static_storage_ref(owner_ref)?;
-                        vm.heap_mut().with_object_mut(storage_ref, |o| {
+                        vm.heap().with_object_mut(storage_ref, |o| {
                             o.fields[slot] = value;
                             Ok(())
                         })?;
@@ -2995,11 +2940,14 @@ impl Interpreter {
                             .len();
 
                         let (args, objectref) = {
-                            let current_frame = vm.get_thread(thread_ref)?.current_frame().ok_or(
-                                InternalError::NoCurrentFrame {
-                                    thread_id: thread_ref.0,
-                                },
-                            )?;
+                            let thread = vm.get_thread(thread_ref)?;
+                            let mut frames_guard = thread.lock_frames();
+                            let current_frame =
+                                frames_guard
+                                    .last_mut()
+                                    .ok_or(InternalError::NoCurrentFrame {
+                                        thread_id: thread_ref.0,
+                                    })?;
 
                             let mut args = Vec::with_capacity(parameter_count);
 
@@ -3179,8 +3127,6 @@ impl Interpreter {
                                 ));
                             }
                         };
-
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                         frame.push_value(value);
                     }
 
@@ -3237,8 +3183,6 @@ impl Interpreter {
                                 ));
                             }
                         };
-
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
                         frame.push_value(value);
                     }
 
@@ -3265,26 +3209,6 @@ impl Interpreter {
                             crate::class::constant_pool::ConstantPoolEntry::Double(f) => {
                                 Value::Double(f)
                             }
-                            /*crate::class::constant_pool::ConstantPoolEntry::String {
-                                string_index,
-                            } => {
-                                let s = vm
-                                    .get_class(frame_class)?
-                                    .constant_pool
-                                    .get_utf8(string_index)?;
-                                Value::Reference(Some(vm.heap_mut().allocate_string(s)))
-                            }
-                            crate::class::constant_pool::ConstantPoolEntry::Class {
-                                name_index,
-                            } => {
-                                let class_name = vm
-                                    .get_class(frame_class)?
-                                    .constant_pool
-                                    .get_utf8(name_index)?;
-                                let target_class_ref = vm.resolve_class(&class_name)?;
-                                let class_obj_ref = vm.class_object_for(target_class_ref);
-                                Value::Reference(Some(class_obj_ref))
-                            }*/
                             other => {
                                 return Err(RuntimeError::Internal(
                                     InternalError::InvalidConstantPoolEntry {
@@ -3296,7 +3220,14 @@ impl Interpreter {
                             }
                         };
 
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                        let thread = vm.get_thread(thread_ref)?;
+                        let mut frames_guard = thread.lock_frames();
+                        let frame =
+                            frames_guard
+                                .last_mut()
+                                .ok_or(InternalError::NoCurrentFrame {
+                                    thread_id: thread_ref.0,
+                                })?;
                         match value {
                             Value::Long(x) => {
                                 frame.push_value(Value::Long(x));
@@ -3722,11 +3653,14 @@ impl Interpreter {
                         frame.pc += 2;
 
                         let (class_ref, reference) = {
-                            let frame = vm.get_thread(thread_ref)?.current_frame().ok_or(
-                                InternalError::NoCurrentFrame {
-                                    thread_id: thread_ref.0,
-                                },
-                            )?;
+                            let thread = vm.get_thread(thread_ref)?;
+                            let mut frames_guard = thread.lock_frames();
+                            let frame =
+                                frames_guard
+                                    .last_mut()
+                                    .ok_or(InternalError::NoCurrentFrame {
+                                        thread_id: thread_ref.0,
+                                    })?;
 
                             let reference = match frame.pop_value() {
                                 Some(Value::Reference(r)) => r,
@@ -3739,11 +3673,14 @@ impl Interpreter {
                         };
 
                         let Some(obj_ref) = reference else {
-                            let frame = vm.get_thread(thread_ref)?.current_frame().ok_or(
-                                InternalError::NoCurrentFrame {
-                                    thread_id: thread_ref.0,
-                                },
-                            )?;
+                            let thread = vm.get_thread(thread_ref)?;
+                            let mut frames_guard = thread.lock_frames();
+                            let frame =
+                                frames_guard
+                                    .last_mut()
+                                    .ok_or(InternalError::NoCurrentFrame {
+                                        thread_id: thread_ref.0,
+                                    })?;
 
                             frame.push_value(Value::Reference(None));
                             return Ok(StepOutcome::Continue);
@@ -3771,11 +3708,14 @@ impl Interpreter {
                             ));
                         }
 
-                        let frame = vm.get_thread(thread_ref)?.current_frame().ok_or(
-                            InternalError::NoCurrentFrame {
-                                thread_id: thread_ref.0,
-                            },
-                        )?;
+                        let thread = vm.get_thread(thread_ref)?;
+                        let mut frames_guard = thread.lock_frames();
+                        let frame =
+                            frames_guard
+                                .last_mut()
+                                .ok_or(InternalError::NoCurrentFrame {
+                                    thread_id: thread_ref.0,
+                                })?;
 
                         frame.push_value(Value::Reference(Some(obj_ref)));
                     }
@@ -3785,11 +3725,14 @@ impl Interpreter {
                         frame.pc += 2;
 
                         let (class_ref, reference) = {
-                            let frame = vm.get_thread(thread_ref)?.current_frame().ok_or(
-                                InternalError::NoCurrentFrame {
-                                    thread_id: thread_ref.0,
-                                },
-                            )?;
+                            let thread = vm.get_thread(thread_ref)?;
+                            let mut frames_guard = thread.lock_frames();
+                            let frame =
+                                frames_guard
+                                    .last_mut()
+                                    .ok_or(InternalError::NoCurrentFrame {
+                                        thread_id: thread_ref.0,
+                                    })?;
 
                             let reference = match frame.pop_value() {
                                 Some(Value::Reference(r)) => r,
@@ -3821,11 +3764,14 @@ impl Interpreter {
                             }
                         };
 
-                        let frame = vm.get_thread(thread_ref)?.current_frame().ok_or(
-                            InternalError::NoCurrentFrame {
-                                thread_id: thread_ref.0,
-                            },
-                        )?;
+                        let thread = vm.get_thread(thread_ref)?;
+                        let mut frames_guard = thread.lock_frames();
+                        let frame =
+                            frames_guard
+                                .last_mut()
+                                .ok_or(InternalError::NoCurrentFrame {
+                                    thread_id: thread_ref.0,
+                                })?;
 
                         frame.push_value(Value::Int(result));
                     }
@@ -3884,7 +3830,14 @@ impl Interpreter {
                         let param_slots =
                                crate::vm::runtime_method::RuntimeMethod::param_slot_count_from_descriptor(&descriptor)?;
 
-                        let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                        let thread = vm.get_thread(thread_ref)?;
+                        let mut frames_guard = thread.lock_frames();
+                        let frame =
+                            frames_guard
+                                .last_mut()
+                                .ok_or(InternalError::NoCurrentFrame {
+                                    thread_id: thread_ref.0,
+                                })?;
 
                         let mut args = Vec::with_capacity(param_slots);
                         let param_types = MethodDescriptor::from_str(&descriptor);
@@ -3937,11 +3890,14 @@ impl Interpreter {
 
             MethodBody::Native => {
                 let (class_ref, method_index) = {
-                    let frame = vm.get_thread(thread_ref)?.current_frame().ok_or(
-                        InternalError::NoCurrentFrame {
+                    let thread = vm.get_thread(thread_ref)?;
+                    drop(frames_guard);
+                    let mut frames_guard = thread.lock_frames();
+                    let frame = frames_guard
+                        .last_mut()
+                        .ok_or(InternalError::NoCurrentFrame {
                             thread_id: thread_ref.0,
-                        },
-                    )?;
+                        })?;
 
                     (frame.class, frame.method_index)
                 };
@@ -3974,7 +3930,13 @@ impl Interpreter {
                     })?;
 
                 let args = {
-                    let frame = vm.get_thread(thread_ref)?.current_frame().unwrap();
+                    let thread = vm.get_thread(thread_ref)?;
+                    let mut frames_guard = thread.lock_frames();
+                    let frame = frames_guard
+                        .last_mut()
+                        .ok_or(InternalError::NoCurrentFrame {
+                            thread_id: thread_ref.0,
+                        })?;
                     frame.locals[..receiver_slots].to_vec()
                 };
 
@@ -3982,24 +3944,23 @@ impl Interpreter {
 
                 let result = native(&mut ctx, &args)?;
 
-                ctx.vm_mut().get_thread(thread_ref)?.pop_frame();
+                let thread = ctx.vm().get_thread(thread_ref)?;
+                thread.pop_frame();
 
-                if let Some(caller) = ctx.vm_mut().get_thread(thread_ref)?.current_frame() {
+                let mut frames_guard = thread.lock_frames();
+                if let Some(caller) = frames_guard.last_mut() {
                     if let Some(value) = result {
                         caller.push_value(value);
                     }
 
                     return Ok(StepOutcome::Continue);
                 }
-
+                drop(frames_guard);
                 return Ok(StepOutcome::Return(result.unwrap_or(Value::Empty)));
             }
 
             MethodBody::Abstract => {
-                return Err(vm.throw(
-                    "java/lang/Exception",
-                    Some("Abstract Methods are not implemented"),
-                ));
+                todo!("Implement execution of native functions")
             }
 
             other => {

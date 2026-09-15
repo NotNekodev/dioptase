@@ -47,7 +47,7 @@ pub fn array_base_offset(
     let class = ctx.vm().get_class(class_ref)?;
 
     if !class.name.starts_with('[') {
-        ctx.vm_mut().throw(
+        ctx.vm().throw(
             "java/lang/IllegalArgumentException",
             Some("arrayBaseOffset called on an object that isnt an array"),
         );

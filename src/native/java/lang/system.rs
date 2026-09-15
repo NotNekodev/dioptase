@@ -66,10 +66,10 @@ pub fn init_properties(
     ];
 
     for (key, value) in entries {
-        let key_ref = ctx.vm_mut().allocate_string(key)?;
-        let val_ref = ctx.vm_mut().allocate_string(value)?;
+        let key_ref = ctx.vm().allocate_string(key)?;
+        let val_ref = ctx.vm().allocate_string(value)?;
 
-        ctx.vm_mut().invoke_virtual_to_completion(
+        ctx.vm().invoke_virtual_to_completion(
             props_ref,
             "setProperty",
             "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;",
@@ -264,7 +264,7 @@ pub fn arraycopy(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value
             array.elements[src_pos as usize..src_end as usize].to_vec()
         };
 
-        ctx.vm_mut().heap_mut().with_array_mut(dest, |a| {
+        ctx.vm().heap().with_array_mut(dest, |a| {
             a.elements[src_pos as usize..src_end as usize].clone_from_slice(&values);
             Ok(())
         })?;
@@ -294,7 +294,7 @@ pub fn arraycopy(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value
             }
         };
 
-        let actual_class = ctx.vm_mut().runtime_class_of(reference)?;
+        let actual_class = ctx.vm().runtime_class_of(reference)?;
 
         if !ctx.vm().is_assignable(actual_class, dest_component)? {
             return ctx.throw(
@@ -304,7 +304,7 @@ pub fn arraycopy(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value
         }
     }
 
-    ctx.vm_mut().heap_mut().with_array_mut(dest, |a| {
+    ctx.vm().heap().with_array_mut(dest, |a| {
         a.elements[src_pos as usize..src_end as usize].clone_from_slice(&values);
         Ok(())
     })?;

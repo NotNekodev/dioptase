@@ -12,18 +12,17 @@ pub fn get_caller_class(
 ) -> Result<Option<Value>, RuntimeError> {
     let caller_class = {
         let tid = ctx.thread();
-        let thread = ctx.vm_mut().get_thread(tid)?;
-
-        let frames = thread.frames();
+        let thread = ctx.vm().get_thread(tid)?;
+        let frames = thread.frame_snapshot();
 
         if frames.len() < 2 {
             return Ok(Some(Value::Reference(None)));
         }
 
-        frames[frames.len() - 2].class
+        frames[frames.len() - 2].0
     };
 
-    let class_object = ctx.vm_mut().class_object_for(caller_class);
+    let class_object = ctx.vm().class_object_for(caller_class);
 
     Ok(Some(Value::Reference(Some(class_object))))
 }

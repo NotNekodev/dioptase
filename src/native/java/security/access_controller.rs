@@ -20,7 +20,7 @@ pub fn do_priviledged(
     let action = match args.get(0) {
         Some(Value::Reference(Some(r))) => *r,
         Some(Value::Reference(None)) => {
-            ctx.vm_mut().throw("java/lang/NullPointerException", None);
+            ctx.vm().throw("java/lang/NullPointerException", None);
             return Err(RuntimeError::Thrown(ObjectRef(0)));
         }
         other => {
@@ -34,12 +34,9 @@ pub fn do_priviledged(
         }
     };
 
-    let result = ctx.vm_mut().invoke_virtual_to_completion(
-        action,
-        "run",
-        "()Ljava/lang/Object;",
-        Vec::new(),
-    )?;
+    let result =
+        ctx.vm()
+            .invoke_virtual_to_completion(action, "run", "()Ljava/lang/Object;", Vec::new())?;
 
     Ok(Some(result))
 }
@@ -56,7 +53,7 @@ pub fn do_privileged_action(
     let action = match args.get(0) {
         Some(Value::Reference(Some(r))) => *r,
         Some(Value::Reference(None)) => {
-            ctx.vm_mut().throw("java/lang/NullPointerException", None);
+            ctx.vm().throw("java/lang/NullPointerException", None);
             return Err(RuntimeError::Thrown(ObjectRef(0)));
         }
         other => {
@@ -70,12 +67,9 @@ pub fn do_privileged_action(
         }
     };
 
-    let result = ctx.vm_mut().invoke_virtual_to_completion(
-        action,
-        "run",
-        "()Ljava/lang/Object;",
-        Vec::new(),
-    )?;
+    let result =
+        ctx.vm()
+            .invoke_virtual_to_completion(action, "run", "()Ljava/lang/Object;", Vec::new())?;
 
     Ok(Some(result))
 }

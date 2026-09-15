@@ -37,7 +37,7 @@ pub fn get_primitive_class(
                 class_name = ctx.vm().java_string_to_rust(objref)?;
             }
             None => {
-                ctx.vm_mut().throw(
+                ctx.vm().throw(
                     "java/lang/NullPointerException",
                     Some("Called java.lang.Class#getPrimitiveClass() with a null pointer"),
                 );
@@ -45,7 +45,7 @@ pub fn get_primitive_class(
         },
 
         other => {
-            ctx.vm_mut().throw(
+            ctx.vm().throw(
                 "java/lang/InternalError",
                 Some("argument 0 to java.lang.Class#getPrimitiveClass() is not a String"),
             );
@@ -105,7 +105,7 @@ pub fn get_primitive_class(
         }
     }
 
-    let primitive_class_ref = ctx.vm_mut().class_object_for(primitive);
+    let primitive_class_ref = ctx.vm().class_object_for(primitive);
 
     Ok(Some(Reference(Some(primitive_class_ref))))
 }
@@ -145,7 +145,7 @@ pub fn get_name(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value>
 
     let name = ctx.vm().get_class(class_ref)?.name.clone();
 
-    let string_ref = ctx.vm_mut().allocate_string(&name)?;
+    let string_ref = ctx.vm().allocate_string(&name)?;
 
     Ok(Some(Value::Reference(Some(string_ref))))
 }
@@ -235,9 +235,9 @@ pub fn for_name0(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value
     };
 
     let class_object = if let Some(loader_ref) = loader {
-        let name_string = ctx.vm_mut().allocate_string(&name)?;
+        let name_string = ctx.vm().allocate_string(&name)?;
 
-        let result = ctx.vm_mut().invoke_virtual_to_completion(
+        let result = ctx.vm().invoke_virtual_to_completion(
             loader_ref,
             "loadClass",
             "(Ljava/lang/String;)Ljava/lang/Class;",
@@ -268,7 +268,7 @@ pub fn for_name0(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value
             Err(error) => return Err(error),
         }
     } else {
-        let class_ref = match ctx.vm_mut().resolve_class(&internal_name) {
+        let class_ref = match ctx.vm().resolve_class(&internal_name) {
             Ok(class_ref) => class_ref,
 
             Err(RuntimeError::Internal(InternalError::ClassNotFound { .. })) => {
@@ -278,13 +278,13 @@ pub fn for_name0(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value
             Err(error) => return Err(error),
         };
 
-        ctx.vm_mut().class_object_for(class_ref)
+        ctx.vm().class_object_for(class_ref)
     };
 
     let class_ref = ctx.vm().heap().get_class_object(class_object)?;
 
     if initialize {
-        ctx.vm_mut().ensure_class_initialized(class_ref)?;
+        ctx.vm().ensure_class_initialized(class_ref)?;
     }
 
     Ok(Some(Value::Reference(Some(class_object))))

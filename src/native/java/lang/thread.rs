@@ -30,7 +30,7 @@ pub fn current_thread(
     _args: &[Value],
 ) -> Result<Option<Value>, RuntimeError> {
     let thread_ref = ctx.thread();
-    let obj_ref = ctx.vm_mut().thread_object_for(thread_ref)?;
+    let obj_ref = ctx.vm().thread_object_for(thread_ref)?;
     Ok(Some(Value::Reference(Some(obj_ref))))
 }
 
@@ -54,9 +54,9 @@ pub fn set_priority0(
         _ => return ctx.throw("java/lang/NullPointerException", None),
     };
 
-    let thread_ref = ctx.vm_mut().thread_ref_from_object(obj_ref)?;
+    let thread_ref = ctx.vm().thread_ref_from_object(obj_ref)?;
 
-    ctx.vm_mut()
+    ctx.vm()
         .get_thread(thread_ref)?
         .set_priority(priority as usize);
 
@@ -75,8 +75,8 @@ pub fn is_alive(ctx: &mut NativeContext, args: &[Value]) -> Result<Option<Value>
         }
     };
 
-    let thread_ref = ctx.vm_mut().thread_ref_from_object(obj_ref)?;
-    let thread = ctx.vm_mut().get_thread(thread_ref)?;
+    let thread_ref = ctx.vm().thread_ref_from_object(obj_ref)?;
+    let thread = ctx.vm().get_thread(thread_ref)?;
 
     let is_alive = match thread.state() {
         ThreadState::New | ThreadState::Terminated => 0,
